@@ -1,0 +1,205 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+import { generateCSSVariables } from "@demo-site-generator/design-system";
+import { faviconDataUri } from "../lib/logo";
+import { photosForCategory } from "@demo-site-generator/hero-engine";
+import "../styles/global.css";
+
+interface Props {
+  business: BusinessData;
+  siteTitle?: string;
+  siteDescription?: string;
+  ogImage?: string;
+}
+
+const { business, siteTitle, siteDescription, ogImage } = Astro.props;
+const cssVars = generateCSSVariables(business.category);
+const cssVarsInline = Object.entries(cssVars)
+  .map(([k, v]) => `${k}: ${v};`)
+  .join("");
+const title = siteTitle ?? `${business.name} — ${business.tagline ?? business.name}`;
+const description = siteDescription ?? business.description ?? business.name;
+const fontStack = business.heroConfig?.lighting === "moody" ? "dark" : "light";
+
+// Structured data (rich results)
+const SCHEMA_TYPE: Record<string, string> = {
+  "real-estate-agent": "RealEstateAgent",
+  "real-estate-developer": "RealEstateAgent",
+  medspa: "HealthAndBeautyBusiness",
+  "boutique-hospitality": "LodgingBusiness",
+  "guesthouse-lodge": "LodgingBusiness",
+};
+const schema = {
+  "@context": "https://schema.org",
+  "@type": SCHEMA_TYPE[business.category] ?? "LocalBusiness",
+  name: business.name,
+  description: business.description ?? undefined,
+  image: business.logoUrl ?? undefined,
+  telephone: business.phone ?? undefined,
+  email: business.email ?? undefined,
+  priceRange: "$$",
+  ...(business.location?.address || business.location?.city
+    ? {
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: business.location.address ?? undefined,
+          addressLocality: business.location.city ?? undefined,
+          addressRegion: business.location.state ?? undefined,
+          postalCode: business.location.zipCode ?? undefined,
+          addressCountry: business.location.country ?? undefined,
+        },
+        ...(business.location?.lat ? { geo: { "@type": "GeoCoordinates", latitude: business.location.lat, longitude: business.location.lng } } : {}),
+      }
+    : {}),
+  ...(business.hours
+    ? {
+        openingHoursSpecification: Object.entries(business.hours)
+          .filter(([, v]) => v)
+          .map(([day, v]) => {
+            const m = String(v).match(/(\d{1,2}[:.]?\d{0,2})\s*(am|pm)?\s*[-–—]\s*(\d{1,2}[:.]?\d{0,2})\s*(am|pm)?/i);
+            return {
+              "@type": "OpeningHoursSpecification",
+              dayOfWeek: day.charAt(0).toUpperCase() + day.slice(1),
+              opens: m ? normalizeHour(m[1], m[2]) : undefined,
+              closes: m ? normalizeHour(m[3], m[4]) : undefined,
+            };
+          })
+          .filter((o) => o.opens),
+      }
+    : {}),
+  ...(business.reviews?.length
+    ? {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: (business.reviews.reduce((a, r) => a + (r.rating ?? 0), 0) / business.reviews.length).toFixed(1),
+          reviewCount: business.reviews.length,
+        },
+        review: business.reviews.slice(0, 5).map((r) => ({
+          "@type": "Review",
+          author: { "@type": "Person", name: r.author ?? "Client" },
+          reviewRating: { "@type": "Rating", ratingValue: r.rating ?? 5 },
+          reviewBody: r.text ?? undefined,
+        })),
+      }
+    : {}),
+};
+
+function normalizeHour(h: string, ampm?: string): string {
+  let n = parseInt(h.replace(/[^\d]/g, ""), 10);
+  if (ampm?.toLowerCase() === "pm" && n < 12) n += 12;
+  if (ampm?.toLowerCase() === "am" && n === 12) n = 0;
+  return `${String(n).padStart(2, "0")}:00`;
+}
+---
+
+<!doctype html>
+<html lang="en" class={fontStack} data-cat={business.category}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" type="image/svg+xml" href={faviconDataUri(business)} />
+    <script is:inline set:html={JSON.stringify(schema)} type="application/ld+json" />
+    {import.meta.env.PUBLIC_GA4_ID && (
+      <script is:inline src={`https://www.googletagmanager.com/gtag/js?id=${import.meta.env.PUBLIC_GA4_ID}`} async />
+    )}
+    {import.meta.env.PUBLIC_GA4_ID && (
+      <script is:inline>
+        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)};gtag('js',new Date());gtag('config','${import.meta.env.PUBLIC_GA4_ID}');`}
+      </script>
+    )}
+    {import.meta.env.PUBLIC_HOTJAR_ID && (
+      <script is:inline>
+        {`(function(h,o,t,j,a,r){h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};h._hjSettings={hjid:${import.meta.env.PUBLIC_HOTJAR_ID},hjsv:6};a=o.getElementsByTagName('head')[0];r=o.createElement('script');r.async=1;r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;a.appendChild(r);})(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');`}
+      </script>
+    )}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:wght@400;500;600&family=Merriweather:wght@400;700&family=DM+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script is:inline set:html={`document.documentElement.style.cssText = ${JSON.stringify(cssVarsInline)}`} />
+  </head>
+  <body class="font-secondary antialiased bg-surface text-text-primary">
+    <slot />
+    <div
+      aria-hidden="true"
+      class="pointer-events-none fixed inset-0 z-[99] opacity-[0.035]"
+      style="background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;)"
+    ></div>
+
+    <!-- Global image fallback: any <img data-cat> that fails to load is swapped
+         to a free stock photo so the site always shows imagery. -->
+    <script is:inline define:vars={{ category: business.category, fallbacks: photosForCategory(business.category) }}>
+      window.__imgFallback = window.__imgFallback || {};
+      window.__imgFallback[category] = fallbacks;
+      document.addEventListener("error", function (e) {
+        const t = e.target;
+        if (t && t.tagName === "IMG" && !t.dataset.fb && t.dataset.cat) {
+          const fb = window.__imgFallback[t.dataset.cat];
+          if (fb && fb.length) {
+            t.dataset.fb = "1";
+            t.src = fb[(Math.random() * fb.length) | 0];
+          }
+        }
+      }, true);
+    </script>
+
+    <!-- Multi-language toggle (English / Afrikaans / isiZulu) for UI labels -->
+    <script is:inline>
+      window.__i18n = {
+        en: {
+          "book-now": "Book Now", "book-exp": "Book Experience", "explore": "Explore Services",
+          pricing: "Pricing", about: "About", services: "Services", gallery: "Gallery",
+          reviews: "Reviews", faq: "FAQ", team: "Team", contact: "Contact", blog: "Journal",
+          "our-services": "Our Services", "get-in-touch": "Get in Touch", "send-message": "Send Message",
+          "loved": "Loved by our clients", "questions": "Questions, answered",
+        },
+        af: {
+          "book-now": "Bespreek", "book-exp": "Bespreek nou", "explore": "Verken dienste",
+          pricing: "Pryse", about: "Oor ons", services: "Dienste", gallery: "Galery",
+          reviews: "Resensies", faq: "Gereelde vrae", team: "Span", contact: "Kontak", blog: "Joernaal",
+          "our-services": "Ons dienste", "get-in-touch": "Kontak ons", "send-message": "Stuur boodskap",
+          "loved": "Geliefd deur ons kliënte", "questions": "Vrae, beantwoord",
+        },
+        zu: {
+          "book-now": "Beka", "book-exp": "Bheka isikhathi", "explore": "Buka izinsiza",
+          pricing: "Amantengo", about: "Mayelana", services: "Izinsiza", gallery: "Imifanekiso",
+          reviews: "Izibuyekezo", faq: "Imibuzo", team: "Iqembu", contact: "Xhumana", blog: "Iphephandaba",
+          "our-services": "Izinsiza zethu", "get-in-touch": "Xhumana nathi", "send-message": "Thumela umlayezo",
+          "loved": "Sithandwa amakhasimende ethu", "questions": "Imibuzo, iphenduliwe",
+        },
+      };
+      const __lang = localStorage.getItem("site-lang") || "en";
+      function __applyLang(lang) {
+        localStorage.setItem("site-lang", lang);
+        const dict = window.__i18n[lang] || window.__i18n.en;
+        document.querySelectorAll("[data-i18n]").forEach(function (el) {
+          const key = el.getAttribute("data-i18n");
+          if (dict[key]) el.textContent = dict[key];
+        });
+        document.querySelectorAll("[data-i18n-lang]").forEach(function (b) {
+          b.classList.toggle("lang-active", b.getAttribute("data-i18n-lang") === lang);
+        });
+      }
+      window.__applyLang = __applyLang;
+      document.addEventListener("DOMContentLoaded", function () { __applyLang(__lang); });
+      // Conversion tracking helper (fires GA4 events when gtag is present)
+      window.__track = function (ev, params) {
+        if (typeof window.gtag === "function") {
+          params = params || {};
+          params.event_category = params.event_category || "engagement";
+          window.gtag("event", ev, params);
+        }
+      };
+    </script>
+  </body>
+</html>
+

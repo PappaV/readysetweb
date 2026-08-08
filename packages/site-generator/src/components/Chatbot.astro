@@ -1,0 +1,129 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+
+interface Props {
+  business: BusinessData;
+  chatEndpoint?: string;
+}
+
+const { business, chatEndpoint = "" } = Astro.props;
+const endpoint = chatEndpoint.replace(/\/$/, "");
+const data = JSON.stringify({
+  endpoint,
+  businessId: business.id ?? "",
+  businessName: business.name,
+});
+---
+
+{endpoint && (
+  <div id="ai-chat" class="fixed bottom-6 right-6 z-50" data-config={data}>
+    <button
+      id="ai-chat-toggle"
+      class="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-card-lg transition-transform hover:scale-105"
+      style="background:linear-gradient(135deg, hsl(var(--color-primary)), hsl(var(--color-accent)))"
+      aria-label="Chat assistant"
+    >
+      <svg id="ai-chat-open-icon" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      </svg>
+      <svg id="ai-chat-close-icon" class="hidden h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div id="ai-chat-panel" class="glass-dark hidden fixed bottom-24 right-6 flex max-h-[28rem] w-[22rem] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl shadow-card-lg">
+      <div class="flex items-center gap-3 px-5 py-4" style="background:linear-gradient(135deg, hsl(var(--color-primary)), hsl(var(--color-accent)))">
+        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.813 15.904L9 18.75l-.873-2.846a9.755 9.755 0 001.686 0zM7.5 8.25h9m-9 0a4.5 4.5 0 119 0m-9 0a4.5 4.5 0 119 0m-4.5 6l.75 2.44L12 21.75l2.25-3.06.75-2.44" /></svg>
+        </span>
+        <div>
+          <p class="font-primary text-sm font-semibold text-white">Assistant</p>
+          <p class="text-xs text-white/70">Ask me anything about {business.name}</p>
+        </div>
+      </div>
+
+      <div id="ai-chat-messages" class="flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm" style="max-height:17rem">
+        <div class="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-white/80" style="background:hsl(var(--color-ink-soft)); border:1px solid hsl(0 0% 100%/0.08)">
+          Hi! 👋 I can help with bookings, services, prices and hours. How can I assist?
+        </div>
+      </div>
+
+      <div id="ai-chat-thinking" class="hidden px-4 pb-2 text-xs text-white/40">typing…</div>
+
+      <form id="ai-chat-form" class="flex items-center gap-2 border-t px-4 py-3" style="border-color:hsl(0 0% 100%/0.08)">
+        <input
+          id="ai-chat-input"
+          type="text"
+          placeholder="Ask a question…"
+          class="flex-1 rounded-lg border px-3 py-2 text-sm outline-none placeholder:text-white/30"
+          style="background:hsl(var(--color-ink-soft)); border-color:hsl(0 0% 100%/0.12); color:#fff"
+        />
+        <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white" style="background:hsl(var(--color-accent))" aria-label="Send">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+)}
+
+<script>
+  const root = document.getElementById("ai-chat");
+  if (root) {
+    const cfg = JSON.parse(root.dataset.config ?? "{}");
+    const toggle = document.getElementById("ai-chat-toggle")!;
+    const panel = document.getElementById("ai-chat-panel")!;
+    const openIcon = document.getElementById("ai-chat-open-icon")!;
+    const closeIcon = document.getElementById("ai-chat-close-icon")!;
+    const messagesEl = document.getElementById("ai-chat-messages")!;
+    const thinking = document.getElementById("ai-chat-thinking")!;
+    const form = document.getElementById("ai-chat-form") as HTMLFormElement;
+    const input = document.getElementById("ai-chat-input") as HTMLInputElement;
+    let history: { role: "visitor" | "bot"; text: string }[] = [];
+
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    function add(direction: "visitor" | "bot", text: string) {
+      const div = document.createElement("div");
+      div.className =
+        direction === "visitor"
+          ? "ml-auto max-w-[85%] rounded-2xl rounded-tr-sm px-4 py-2.5 text-white"
+          : "max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-white/80";
+      div.style.background = direction === "visitor" ? "hsl(var(--color-accent))" : "hsl(var(--color-ink-soft))";
+      div.style.border = direction === "bot" ? "1px solid hsl(0 0% 100% / 0.08)" : "none";
+      div.innerHTML = esc(text).replace(/\n/g, "<br/>");
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    toggle.addEventListener("click", () => {
+      window.__track && window.__track("chat_open");
+      const open = panel.classList.toggle("hidden");
+      openIcon.classList.toggle("hidden", !open);
+      closeIcon.classList.toggle("hidden", open);
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      add("visitor", text);
+      history.push({ role: "visitor", text });
+      input.value = "";
+      thinking.classList.remove("hidden");
+      try {
+        const res = await fetch(`${cfg.endpoint}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ businessId: cfg.businessId, question: text, history: history.slice(-8) }),
+        });
+        const json = await res.json();
+        const answer = json.answer || "Sorry, I couldn't find that — please call or WhatsApp us and we'll help.";
+        add("bot", answer);
+        history.push({ role: "bot", text: answer });
+      } catch {
+        add("bot", "I can't reach the assistant right now — please call or WhatsApp us directly.");
+      }
+      thinking.classList.add("hidden");
+    });
+  }
+</script>

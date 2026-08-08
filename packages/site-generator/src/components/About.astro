@@ -1,0 +1,92 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+import { photosForCategory } from "@demo-site-generator/hero-engine";
+
+interface Props {
+  business: BusinessData;
+}
+
+const { business } = Astro.props;
+const photos = business.gallery?.length
+  ? business.gallery.map((g) => g.url)
+  : photosForCategory(business.category);
+const mainImage = photos[0];
+const secondaryImage = photos[1];
+const stats = [
+  { value: business.services?.length ?? "-", label: "Services" },
+  { value: business.team?.length ?? "-", label: "Specialists" },
+  { value: business.reviews?.length ?? "-", label: "5-star reviews" },
+];
+const since = business.faqs?.length ?? 0;
+---
+
+<section id="about" class="section aurora">
+  <div class="container-site">
+    <div class="grid items-center gap-16 lg:grid-cols-2 lg:gap-20">
+      <!-- Editorial copy -->
+      <div class="reveal">
+        <p class="eyebrow mb-4">About {business.name}</p>
+        <h2 class="section-title">
+          Crafted care,<br /> <span class="text-gradient">{business.name}</span>
+        </h2>
+        <p class="section-subtitle">
+          {business.description}
+        </p>
+
+        <div class="mt-10 grid grid-cols-3 gap-8">
+          {stats.map((s) => (
+            <div class="border-l-2 pl-5" style="border-color:hsl(var(--color-accent)/0.5)">
+              <div class="stat-value text-gradient">{s.value}</div>
+              <div class="mt-2 text-xs font-semibold uppercase tracking-widest text-text-muted">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {business.location && (
+          <div class="card mt-10 flex items-start gap-4" style="padding:1.4rem 1.6rem">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style="background:hsl(var(--color-accent)/0.14); color:hsl(var(--color-accent-dark))">
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </span>
+            <div>
+              <p class="font-semibold text-text-primary">Find us</p>
+              <p class="mt-1 text-sm text-text-secondary">
+                {[business.location.address, business.location.city, business.location.state].filter(Boolean).join(", ")}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <!-- Image collage -->
+      <div class="relative reveal reveal-delay-1">
+        <div class="media media-ring relative" style="aspect-ratio: 4/5; border-radius:1.75rem">
+          {mainImage && <img src={mainImage} alt={business.name} data-cat={business.category} class="h-full w-full object-cover" loading="lazy" />}
+          <div class="absolute inset-0 rounded-[1.75rem] bg-gradient-to-t from-ink/30 to-transparent"></div>
+        </div>
+
+        {secondaryImage && (
+          <div class="media absolute -bottom-10 -right-4 w-56 rounded-2xl border-4 border-surface shadow-card-lg md:-right-10 md:w-64" style="aspect-ratio:1/1">
+            <img src={secondaryImage} alt={`${business.name} detail`} data-cat={business.category} class="h-full w-full object-cover" loading="lazy" />
+          </div>
+        )}
+
+        <div class="absolute -left-4 -top-6 animate-float-y">
+          <div class="card-glass rounded-2xl px-5 py-4 shadow-card-lg">
+            <div class="flex items-center gap-3">
+              <span class="flex h-10 w-10 items-center justify-center rounded-full" style="background:linear-gradient(135deg, hsl(var(--color-accent)), hsl(var(--color-primary))); color:#fff">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </span>
+              <div>
+                <p class="text-xs uppercase tracking-widest text-text-muted">Since</p>
+                <p class="font-primary text-xl font-bold text-text-primary">{since > 0 ? `${since}+ services` : "Local & trusted"}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

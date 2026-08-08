@@ -1,0 +1,231 @@
+---
+import Base from "../layouts/Base.astro";
+import Hero from "../components/Hero.astro";
+import About from "../components/About.astro";
+import Services from "../components/Services.astro";
+import Gallery from "../components/Gallery.astro";
+import Reviews from "../components/Reviews.astro";
+import Contact from "../components/Contact.astro";
+import FAQ from "../components/FAQ.astro";
+import Team from "../components/Team.astro";
+import Pricing from "../components/Pricing.astro";
+import Booking from "../components/Booking.astro";
+import Blog from "../components/Blog.astro";
+import Navbar from "../components/Navbar.astro";
+import Purchase from "../components/Purchase.astro";
+import PopupNewsletter from "../components/PopupNewsletter.astro";
+import LeadCapture from "../components/LeadCapture.astro";
+import ClientChat from "../components/ClientChat.astro";
+import WhatsAppButton from "../components/WhatsAppButton.astro";
+import Chatbot from "../components/Chatbot.astro";
+import { business } from "../data/business";
+import Logo from "../components/Logo.astro";
+import { layoutFor, toneClass } from "../lib/layout";
+
+// Always render the full standard set of sections, regardless of what the
+// generation data contains. `business.sections` only controls order/visibility.
+const ALL_SECTION_TYPES = [
+  "hero",
+  "about",
+  "services",
+  "gallery",
+  "team",
+  "reviews",
+  "pricing",
+  "booking",
+  "faq",
+  "blog",
+  "contact",
+] as const;
+
+const sectionMap = {
+  hero: Hero,
+  about: About,
+  services: Services,
+  gallery: Gallery,
+  reviews: Reviews,
+  contact: Contact,
+  faq: FAQ,
+  team: Team,
+  pricing: Pricing,
+  booking: Booking,
+  blog: Blog,
+} as const;
+
+// Preserve configured order where present; otherwise use the default order
+const configured = business.sections?.length
+  ? business.sections.filter((s) => s.enabled !== false)
+  : [];
+
+// Merge: always include all standard sections (fall back to default order for any missing)
+const defaultTypes = ALL_SECTION_TYPES.map((type, i) => ({ id: type, type, enabled: true, order: i + 1 }));
+const merged: Array<{ id: string; type: (typeof ALL_SECTION_TYPES)[number]; enabled: boolean; order: number }> = [
+  ...defaultTypes,
+];
+
+for (const sec of configured) {
+  const idx = merged.findIndex((m) => m.type === sec.type);
+  if (idx >= 0) {
+    merged[idx] = { ...sec, order: sec.order ?? merged[idx].order };
+  } else {
+    merged.push({ ...sec, order: sec.order ?? merged.length + 1 });
+  }
+}
+
+const sectionOrder = merged.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+
+const layout = layoutFor(business.category);
+
+const PURCHASE_ENDPOINT = import.meta.env.PUBLIC_PURCHASE_ENDPOINT ?? "";
+const PURCHASE_AMOUNT = Number(import.meta.env.PUBLIC_PURCHASE_AMOUNT ?? 1499);
+const LEADS_ENDPOINT = import.meta.env.PUBLIC_LEADS_ENDPOINT ?? "";
+const POPUP_TRIGGER = import.meta.env.PUBLIC_POPUP_TRIGGER ?? "exit";
+const CHAT_ENDPOINT = import.meta.env.PUBLIC_CHAT_ENDPOINT ?? "";
+
+const labelMap: Record<string, string> = {
+  about: "About",
+  services: "Services",
+  gallery: "Gallery",
+  reviews: "Reviews",
+  contact: "Contact",
+  faq: "FAQ",
+  team: "Team",
+  pricing: "Pricing",
+  booking: "Book",
+  blog: "Journal",
+};
+const sections = (business.sections?.length ? business.sections : [])
+  .filter((s) => s.enabled !== false)
+  .sort((a, b) => a.order - b.order)
+  .filter((s) => s.type !== "hero");
+---
+
+<Base business={business}>
+  <Navbar business={business} />
+  {
+    sectionOrder.map((section) => {
+      const Component = sectionMap[section.type as keyof typeof sectionMap];
+      if (!Component) return null;
+      const tone = toneClass(layout.tones[section.type as string]);
+      if (section.type === "pricing") {
+        return <div class={tone}><Pricing business={business} buyEndpoint={PURCHASE_ENDPOINT} offerPrice={PURCHASE_AMOUNT} /></div>;
+      }
+      if (section.type === "booking") {
+        return <div class={tone}><Booking business={business} checkoutUrl={PURCHASE_ENDPOINT} leadsEndpoint={LEADS_ENDPOINT} /></div>;
+      }
+      return <div class={tone}><Component business={business} /></div>;
+    })
+  }
+
+  <Purchase business={business} purchaseUrl={PURCHASE_ENDPOINT} purchaseAmount={PURCHASE_AMOUNT} />
+  <PopupNewsletter business={business} leadsEndpoint={LEADS_ENDPOINT} trigger={POPUP_TRIGGER as "exit" | "timed" | "scroll"} />
+  <LeadCapture business={business} leadsEndpoint={LEADS_ENDPOINT} />
+  <ClientChat business={business} chatEndpoint={CHAT_ENDPOINT} />
+  <WhatsAppButton business={business} />
+  <Chatbot business={business} chatEndpoint={CHAT_ENDPOINT} />
+
+  <!-- Conversion trust bar -->
+  <div class="section !py-10" style="background:hsl(var(--color-surface-tint)/0.5)">
+    <div class="container-site grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {[
+        { icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", t: "Certified & safe", s: "Qualified professionals, highest standards" },
+        { icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", t: "Convenient booking", s: "Book online in under a minute, 7 days a week" },
+        { icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", t: "Private & comfortable", s: "Discreet, welcoming environment" },
+        { icon: "M13 10V3L4 14h7v7l9-11h-7z", t: "Instant WhatsApp", s: "Chat with us directly, get quick answers" },
+      ].map((item) => (
+        <div class="flex items-start gap-3">
+          <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white" style="background:linear-gradient(135deg, hsl(var(--color-accent)), hsl(var(--color-primary)))">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={item.icon} /></svg>
+          </span>
+          <div>
+            <p class="font-semibold text-text-primary">{item.t}</p>
+            <p class="mt-0.5 text-sm text-text-secondary">{item.s}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <footer class="relative overflow-hidden border-t border-border bg-ink py-16">    <div class="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full opacity-30 blur-[100px]" style="background:radial-gradient(circle, hsl(var(--color-accent)/0.4), transparent 65%)"></div>
+    <div class="container-site">
+      <div class="grid gap-12 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
+        <div>
+          <div class="flex items-center gap-3">
+            <Logo business={business} size={40} />
+            <span class="font-primary text-xl font-semibold text-white">{business.name}</span>
+          </div>
+          <p class="mt-5 max-w-sm text-sm leading-relaxed text-white/60">
+            {business.description?.slice(0, 220) ?? "Premium service, refined for you."}
+          </p>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-white/40">Explore</p>
+          <ul class="mt-4 space-y-2.5">
+            {sections.slice(0, 6).map((s) => (
+              <li>
+                <a href={`#${s.id}`} class="text-sm text-white/70 transition-colors hover:text-white">{labelMap[s.type] ?? s.type}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-white/40">Contact</p>
+          <ul class="mt-4 space-y-2.5 text-sm text-white/70">
+            {business.phone && (
+              <li><a href={`tel:${business.phone}`} class="transition-colors hover:text-white">{business.phone}</a></li>
+            )}
+            {business.email && (
+              <li><a href={`mailto:${business.email}`} class="transition-colors hover:text-white">{business.email}</a></li>
+            )}
+            {business.location && (
+              <li class="leading-relaxed">
+                {business.location.address},<br />{business.location.city}
+              </li>
+            )}
+          </ul>
+        </div>
+
+        {business.hours && (
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-widest text-white/40">Hours</p>
+            <ul class="mt-4 space-y-2 text-sm text-white/70">
+              {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+                .map((d) => business.hours?.[d as keyof typeof business.hours])
+                .filter(Boolean)
+                .slice(0, 5)
+                .map((h, i) => (
+                  <li class="flex items-center justify-between gap-4">
+                    <span class="capitalize">{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][i]}</span>
+                    <span class="text-white/45">{h}</span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <div class="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 md:flex-row">
+        <p class="text-sm text-white/50">© {new Date().getFullYear()} {business.name}. All rights reserved.</p>
+        <div class="flex items-center gap-4">
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-white/60">
+            <svg class="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            Performance 100/100
+          </span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-white/60">
+            <svg class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+            SEO Optimized
+          </span>
+          <span class="text-sm text-white/40">Crafted with care.</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+</Base>
+
+<script>
+  import { initReveal } from "@demo-site-generator/hero-engine";
+
+  initReveal();
+</script>

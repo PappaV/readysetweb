@@ -1,0 +1,49 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+
+interface Props {
+  business: BusinessData;
+  leadsEndpoint?: string;
+}
+
+const { business, leadsEndpoint = "" } = Astro.props;
+const leadData = JSON.stringify({ businessName: business.name, leadsEndpoint });
+---
+
+<div id="lead-capture" data-lead={leadData}>
+  <slot />
+</div>
+
+<script>
+  const container = document.getElementById("lead-capture")!;
+  const data = JSON.parse(container.dataset.lead ?? "{}");
+
+  // Attach to any forms inside this section that don't already handle submission
+  container.querySelectorAll("form").forEach((form) => {
+    form.addEventListener("submit", async () => {
+      if (!data.leadsEndpoint) return;
+
+      const fd = new FormData(form as HTMLFormElement);
+      const lead = {
+        businessName: data.businessName,
+        type: form.closest("section")?.id ?? "lead",
+        name: fd.get("name") ?? fd.get("fullname") ?? undefined,
+        email: fd.get("email") ?? undefined,
+        phone: fd.get("phone") ?? undefined,
+        message: fd.get("message") ?? fd.get("msg") ?? undefined,
+        date: fd.get("date") ?? undefined,
+        page: window.location.pathname,
+      };
+
+      try {
+        await fetch(data.leadsEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(lead),
+        });
+      } catch {
+        // forms still work locally without the API
+      }
+    });
+  });
+</script>

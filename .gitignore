@@ -1,0 +1,27 @@
+# Secrets
+.env
+**/.env
+!**/.env.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+.turbo/
+**/.turbo/
+
+# Astro
+.astro/
+**/.astro/
+
+# Runtime data / logs
+apps/*/data/
+**/data/
+*.log
+
+# Temp / local
+.DS_Store
+Thumbs.db

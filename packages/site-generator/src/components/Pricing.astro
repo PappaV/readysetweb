@@ -1,0 +1,174 @@
+---
+import type { BusinessData, PricingPlan } from "@demo-site-generator/shared";
+
+interface Props {
+  business: BusinessData;
+  buyEndpoint?: string;
+  offerPrice?: number;
+  offerPriceNote?: string;
+}
+
+const { business, buyEndpoint = "", offerPrice, offerPriceNote } = Astro.props;
+const buyUrl = buyEndpoint || "/api/payments/checkout";
+
+const fmt = (n: number) => `R${n.toLocaleString("en-ZA")}`;
+
+const services = business.services ?? [];
+const plans: PricingPlan[] = (business.pricing ?? []).filter((p) => p && p.name);
+const pricedServices = services.filter((s) => s && s.price);
+
+const hasPlans = plans.length > 0;
+const hasPricedServices = pricedServices.length > 0;
+const isEstimated = Boolean(business.estimatedPricing) || plans.some((p) => p.estimated);
+
+const priceToNumber = (s: { price?: string | null }) => {
+  if (!s.price) return null;
+  const m = s.price.match(/\d[\d\s.,]*/);
+  if (!m) return null;
+  const cleaned = m[0].replace(/[\s,]/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
+};
+
+const sortedServices = [...pricedServices].sort((a, b) => {
+  const an = priceToNumber(a) ?? Number.MAX_SAFE_INTEGER;
+  const bn = priceToNumber(b) ?? Number.MAX_SAFE_INTEGER;
+  return an - bn;
+});
+
+const popularIndex = plans.findIndex((p) => p.popular);
+const popular = popularIndex >= 0 ? popularIndex : Math.floor(plans.length / 2);
+const showOffer = Boolean(buyUrl) && (offerPrice ?? 0) > 0;
+---
+
+<section id="pricing" class="section">
+  <div class="container-site">
+    <div class="mx-auto max-w-2xl text-center reveal">
+      <p class="eyebrow mb-3 justify-center">Pricing</p>
+      <h2 class="section-title mb-4">Honest pricing, no surprises</h2>
+      <p class="section-subtitle mx-auto">Clear rates for every treatment and experience we offer.</p>
+    </div>
+
+    {isEstimated && (
+      <div class="mx-auto mt-8 flex max-w-2xl items-start gap-3 rounded-2xl border border-accent/25 bg-accent/5 px-5 py-4 reveal">
+        <svg class="mt-0.5 h-5 w-5 shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+        <p class="text-body-sm text-text-secondary">
+          <strong class="text-text-primary">Example pricing shown.</strong> These are guide prices so you can see the kind of offer —
+          final rates are confirmed when you book or contact us.
+        </p>
+      </div>
+    )}
+
+    <!-- Option A: dedicated pricing plans -->
+    {hasPlans && (
+      <div class="mt-14 grid gap-8 lg:grid-cols-3">
+        {plans.map((plan, i) => (
+          <article
+            class={i === popular ? "card reveal relative flex flex-col overflow-hidden ring-2" : "card reveal flex flex-col"}
+            style={i === popular ? { ["--tw-ring-color" as string]: "hsl(var(--color-accent))" } : {}}
+          >
+            {i === popular && (
+              <div class="absolute right-0 top-0 rounded-bl-lg px-4 py-1 text-caption font-semibold uppercase tracking-wider text-white" style="background:linear-gradient(135deg, hsl(var(--color-accent)), hsl(var(--color-primary)))">
+                Most Popular
+              </div>
+            )}
+            <h3 class="font-primary text-heading-lg font-semibold text-text-primary">{plan.name}</h3>
+            {plan.estimated && (
+              <span class="mt-1 inline-block rounded-full bg-accent/10 px-2.5 py-0.5 text-caption font-medium uppercase tracking-wide text-accent">
+                Estimate
+              </span>
+            )}
+            <div class="mt-3 flex items-baseline gap-1">
+              <span class="font-primary text-display-md font-bold text-accent">{plan.price}</span>
+              {plan.period && <span class="text-body-sm text-text-muted">{plan.period}</span>}
+            </div>
+            {plan.ctaText && <p class="mt-1 text-caption text-text-muted">{plan.ctaText}</p>}
+            <ul class="mt-6 flex-1 space-y-2">
+              {(plan.features ?? []).map((f) => (
+                <li class="flex items-start gap-2 text-body-sm text-text-secondary">
+                  <svg class="mt-0.5 h-5 w-5 shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {plan.ctaLink && (
+              <a href={plan.ctaLink} class={i === popular ? "btn-accent mt-8 w-full" : "btn-outline mt-8 w-full"}>
+                {plan.ctaText || "Get Started"}
+              </a>
+            )}
+          </article>
+        ))}
+      </div>
+    )}
+
+    <!-- Option B: priced service menu -->
+    {!hasPlans && hasPricedServices && (
+      <div class="mt-14 mx-auto max-w-3xl">
+        <div class="card reveal overflow-hidden p-0">
+          <ul class="divide-y divide-text-muted/10">
+            {sortedServices.map((service) => {
+              const price = service.price;
+              const num = priceToNumber(service);
+              return (
+                <li class="group flex items-baseline justify-between gap-4 px-6 py-5 transition-colors hover:bg-surface-elevated sm:px-8">
+                  <div class="min-w-0">
+                    <h3 class="font-primary text-lg font-semibold text-text-primary">{service.name}</h3>
+                    <div class="mt-0.5 flex items-center gap-3 text-sm">
+                      {service.description && <p class="text-text-secondary">{service.description}</p>}
+                      {service.duration && <span class="shrink-0 text-text-muted">{service.duration}</span>}
+                    </div>
+                  </div>
+                  <div class="flex shrink-0 flex-col items-end">
+                    <span class="font-primary text-xl font-bold text-accent">{price}</span>
+                    {num !== null && (
+                      <span class="mt-0.5 hidden text-caption text-text-muted sm:block">R{num.toLocaleString("en-ZA")} per session</span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <p class="mt-4 text-center text-body-sm text-text-muted">
+          Every session tailored to you — book a consultation to get an exact quote.
+        </p>
+      </div>
+    )}
+
+    <!-- Option C: no price data yet -->
+    {!hasPlans && !hasPricedServices && (
+      <div class="mt-14 mx-auto max-w-2xl">
+        <div class="card reveal p-10 text-center">
+          <p class="font-primary text-heading-md font-semibold text-text-primary">Tailored pricing</p>
+          <p class="mt-2 text-body-sm text-text-secondary">
+            Every treatment is quoted individually after a quick consultation — contact us and we'll put a package together for you.
+          </p>
+        </div>
+      </div>
+    )}
+
+    <!-- Make it yours offer -->
+    {showOffer && (
+      <div class="mt-16 reveal">
+        <div class="relative overflow-hidden rounded-[2rem] p-10 text-center sm:p-14" style="background:linear-gradient(135deg, hsl(var(--color-ink)), hsl(var(--color-primary-dark)))">
+          <div class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-50 blur-[100px]" style="background:radial-gradient(circle, hsl(var(--color-accent)/0.5), transparent 65%)"></div>
+          <div class="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full opacity-40 blur-[100px]" style="background:radial-gradient(circle, hsl(var(--color-secondary)/0.5), transparent 65%)"></div>
+          <div class="relative">
+            <p class="eyebrow mb-4 justify-center" style="color:#fbbf24">Your demo site</p>
+            <h3 class="font-primary text-heading-xl font-bold text-white">Make this site yours</h3>
+            <p class="mx-auto mt-4 max-w-xl text-body-lg leading-relaxed text-white/75">
+              {offerPriceNote ?? `This is a live demo built for ${business.name}. Own the full website for ${fmt(offerPrice!)} — yours outright, including hosting and setup.`}
+            </p>
+            <form action={buyUrl} method="post" class="mt-9 flex flex-col items-center gap-3">
+              <input type="hidden" name="orderId" value={business.id ?? "demo-site"} />
+              <input type="hidden" name="description" value={`Website for ${business.name}`} />
+              <input type="hidden" name="amount" value={offerPrice} />
+              <input type="hidden" name="currency" value="ZAR" />
+              <button type="submit" class="btn-accent btn-lg px-12">Buy This Site — {fmt(offerPrice!)}</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</section>

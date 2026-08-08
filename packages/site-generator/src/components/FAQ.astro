@@ -1,0 +1,40 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+
+interface Props {
+  business: BusinessData;
+}
+
+const { business } = Astro.props;
+const faqs = business.faqs ?? [];
+---
+
+<section id="faq" class="section">
+  <div class="container-site">
+    <div class="grid gap-12 lg:grid-cols-[1fr_1.6fr] lg:gap-16">
+      <div class="reveal">
+        <p class="eyebrow mb-4">FAQ</p>
+        <h2 class="section-title" data-i18n="questions">Questions, answered</h2>
+        <p class="section-subtitle">
+          Everything you might want to know before visiting {business.name}. Can't find your answer? Just reach out.
+        </p>
+      </div>
+
+      <div class="space-y-3 reveal reveal-delay-1">
+        {faqs.map((faq, i) => (
+          <details class="group card" open={i === 0} style="padding:0">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-6 px-6 py-5 font-primary text-lg font-semibold text-text-primary sm:px-7">
+              <span>{faq.question}</span>
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-300 group-open:rotate-45" style="background:hsl(var(--color-accent)/0.12); color:hsl(var(--color-accent-dark))">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+              </span>
+            </summary>
+            <div class="px-6 pb-6 sm:px-7">
+              <p class="text-body leading-relaxed text-text-secondary">{faq.answer}</p>
+            </div>
+          </details>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>

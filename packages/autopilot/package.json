@@ -1,0 +1,23 @@
+{
+  "name": "@demo-site-generator/autopilot",
+  "version": "0.0.1",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@demo-site-generator/shared": "workspace:*",
+    "@demo-site-generator/places-client": "workspace:*",
+    "@demo-site-generator/content-ai": "workspace:*",
+    "@demo-site-generator/deploy": "workspace:*",
+    "@demo-site-generator/telegram": "workspace:*",
+    "@demo-site-generator/scraper": "workspace:*",
+    "@demo-site-generator/outreach": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.12.0"
+  }
+}

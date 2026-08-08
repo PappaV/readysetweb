@@ -1,0 +1,122 @@
+---
+import Base from "../layouts/Base.astro";
+import { buildPreviewData } from "../data/preview";
+---
+
+<Base business={buildPreviewData()} siteTitle="Cinematic Hero Playground">
+  <div class="min-h-screen bg-surface text-text-primary">
+    <header class="glass sticky top-0 z-50 border-b border-text-muted/10">
+      <div class="container-site flex flex-wrap items-center justify-between gap-4 py-4">
+        <div class="flex items-center gap-3">
+          <h1 class="font-primary text-heading-lg font-bold">Cinematic Image Hero</h1>
+          <span class="rounded-full bg-accent/15 px-3 py-1 text-caption font-medium uppercase tracking-wider text-accent">
+            Real Photos
+          </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="flex items-center gap-2 text-body-sm text-text-secondary">
+            Category
+            <select id="sel-category" class="rounded-lg border border-text-muted/20 bg-surface px-3 py-2 text-body-sm outline-none focus:border-accent">
+              <option value="medspa">Medspa</option>
+              <option value="real-estate-agent">Real Estate</option>
+              <option value="real-estate-developer">Real Estate Dev</option>
+              <option value="boutique-hospitality">Boutique Hotel</option>
+              <option value="guesthouse-lodge">Mountain Lodge</option>
+            </select>
+          </label>
+
+          <label class="flex items-center gap-2 text-body-sm text-text-secondary">
+            Media
+            <select id="sel-media" class="rounded-lg border border-text-muted/20 bg-surface px-3 py-2 text-body-sm outline-none focus:border-accent">
+              <option value="photo">Real Photo</option>
+              <option value="video">Video</option>
+            </select>
+          </label>
+
+          <label class="flex items-center gap-2 text-body-sm text-text-secondary">
+            Camera
+            <select id="sel-camera" class="rounded-lg border border-text-muted/20 bg-surface px-3 py-2 text-body-sm outline-none focus:border-accent">
+              <option value="drone-descend">Drone Descend</option>
+              <option value="orbital">Orbital Pan</option>
+              <option value="dolly-zoom">Dolly Zoom</option>
+              <option value="fly-through">Fly Through</option>
+              <option value="static">Static</option>
+            </select>
+          </label>
+
+          <label class="flex items-center gap-2 text-body-sm text-text-secondary">
+            <input id="chk-grain" type="checkbox" checked class="h-4 w-4 accent-accent" />
+            Film Grain
+          </label>
+          <label class="flex items-center gap-2 text-body-sm text-text-secondary">
+            <input id="chk-vignette" type="checkbox" checked class="h-4 w-4 accent-accent" />
+            Vignette
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div id="cine-stage" class="relative h-screen w-full overflow-hidden bg-black"></div>
+
+      <section class="py-16">
+        <div class="container-site">
+          <h2 class="section-title mb-4">Real Photography, Cinematic Motion</h2>
+          <p class="text-body-lg text-text-secondary max-w-2xl">
+            Real photography and footage, cinematic motion. Toggle between photo and video, then
+            scroll on the stage above — the camera path moves the actual image/footage.
+          </p>
+
+          <div class="mt-8 grid gap-4 md:grid-cols-3">
+            <div class="card"><h3 class="font-primary font-semibold text-heading-sm mb-2">Photo or Video</h3><p class="text-body-sm text-text-secondary">Switch the media toggle to swap real photos for motion footage in the hero.</p></div>
+            <div class="card"><h3 class="font-primary font-semibold text-heading-sm mb-2">Drone Descend</h3><p class="text-body-sm text-text-secondary">Wide establishing shot zooms to a focused hero reveal — like a drone descending.</p></div>
+            <div class="card"><h3 class="font-primary font-semibold text-heading-sm mb-2">Orbital Pan</h3><p class="text-body-sm text-text-secondary">Smooth horizontal pan across the scene with a gentle rotate — as if orbiting the subject.</p></div>
+            <div class="card"><h3 class="font-primary font-semibold text-heading-sm mb-2">Dolly Zoom</h3><p class="text-body-sm text-text-secondary">Push in while the background blurs — the signature Hitchcock vertigo on scroll.</p></div>
+            <div class="card"><h3 class="font-primary font-semibold text-heading-sm mb-2">Fly Through</h3><p class="text-body-sm text-text-secondary">Vertical + horizontal + rotate combined — a full camera sweep through the scene.</p></div>
+            <div class="card"><h3 class="font-primary font-semibold text-heading-sm mb-2">Film Grain + Vignette</h3><p class="text-body-sm text-text-secondary">Noise overlay and darkened edges — feels shot on film, not generated.</p></div>
+          </div>
+
+          <p class="mt-8 text-caption uppercase tracking-wider text-text-muted">
+            Images/footage served from public CDNs. In production, the lead's own photos and video
+            from their social media / Google listing are used.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+</Base>
+
+<script>
+  import { initCineImage, photosForCategory, videosForCategory } from "@demo-site-generator/hero-engine";
+
+  const stage = document.getElementById("cine-stage")!;
+  let handle: { dispose: () => void } | null = null;
+
+  function mount() {
+    handle?.dispose();
+    stage.innerHTML = "";
+    const category = (document.getElementById("sel-category") as HTMLSelectElement).value;
+    const camera = (document.getElementById("sel-camera") as HTMLSelectElement).value as any;
+    const media = (document.getElementById("sel-media") as HTMLSelectElement).value;
+    const grain = (document.getElementById("chk-grain") as HTMLInputElement).checked;
+    const vignette = (document.getElementById("chk-vignette") as HTMLInputElement).checked;
+
+    handle = initCineImage({
+      container: stage,
+      images: photosForCategory(category),
+      videos: media === "video" ? videosForCategory(category) : undefined,
+      cameraPath: camera,
+      showGrain: grain,
+      showVignette: vignette,
+      title: "Your Business, Cinematic",
+      subtitle: category.replace(/-/g, " "),
+    });
+  }
+
+  ["sel-category", "sel-media", "sel-camera", "chk-grain", "chk-vignette"].forEach((id) => {
+    document.getElementById(id)!.addEventListener("change", mount);
+  });
+
+  mount();
+</script>

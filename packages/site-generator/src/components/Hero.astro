@@ -1,0 +1,412 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+import { photosForCategory, videosForCategory } from "@demo-site-generator/hero-engine";
+import Logo from "./Logo.astro";
+import { layoutFor, type HeroVariant } from "../lib/layout";
+
+interface Props {
+  business: BusinessData;
+}
+
+const { business } = Astro.props;
+const headline = business.tagline ?? business.name;
+const images = business.gallery?.length
+  ? business.gallery.map((g) => g.url)
+  : photosForCategory(business.category);
+const hasReviews = business.reviews?.length > 0;
+const avgRating = hasReviews
+  ? (business.reviews.reduce((a, r) => a + (r.rating ?? 0), 0) / business.reviews.length).toFixed(1)
+  : "5.0";
+const reviewCount = business.reviews?.length ?? 0;
+const words = headline.split(/\s+/);
+const city = business.location?.city ?? "South Africa";
+const services = business.services ?? [];
+const heroImage = images[0];
+// Per-site 15s cinematic video (rendered from the business's real photos at build
+// time) is the primary hero. Only fall back to a generic stock video when no
+// per-site video or enough real photos exist.
+const heroVideo = business.heroVideoUrl ?? (images.length < 2 ? videosForCategory(business.category)[0] : undefined);
+// When a real video plays, the photo montage is unnecessary.
+const showPhotoStage = !heroVideo;
+
+const variant: HeroVariant = layoutFor(business.category).hero;
+const cameraPath = business.heroConfig?.cameraPath ?? "drone-descend";
+const lighting = business.heroConfig?.lighting ?? "studio";
+const colorScheme = business.heroConfig?.colorScheme ?? "cool";
+const heroData = JSON.stringify({ images, cameraPath, lighting, colorScheme });
+
+const centered = variant === "centered";
+const split = variant === "split";
+const contentAlign = centered ? "mx-auto max-w-3xl text-center" : "max-w-2xl lg:max-w-3xl";
+const ctaWrap = centered ? "justify-center" : "";
+---
+
+<section id="top" class="relative flex min-h-screen items-center overflow-hidden bg-ink" style="padding-top:6rem; padding-bottom:4rem">
+  <!-- Cinematic photo stage (only when no per-site video is available) -->
+  {showPhotoStage && <div id="hero-3d" class="absolute inset-0" data-hero={heroData}></div>}
+
+  <!-- Per-site 15s cinematic video background -->
+  {heroVideo && (
+    <video
+      id="hero-video"
+      class="absolute inset-0 h-full w-full object-cover"
+      src={heroVideo}
+      poster={heroImage}
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+      onerror="this.style.display='none'"
+      aria-hidden="true"
+    ></video>
+  )}
+
+  <!-- Depth scrims -->
+  <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink via-ink/20 to-transparent"></div>
+  <div class={`pointer-events-none absolute inset-0 ${centered ? "bg-ink/40" : "bg-gradient-to-r from-ink/80 via-ink/25 to-transparent"}`}></div>
+
+  <!-- Aurora glow -->
+  <div class={`pointer-events-none absolute ${centered ? "left-1/2 top-0 -translate-x-1/2" : "-right-32 top-1/4"} h-[34rem] w-[34rem] rounded-full opacity-40 blur-[120px]`} style="background:radial-gradient(circle, hsl(var(--color-accent)/0.4), transparent 65%)"></div>
+
+  <!-- Spline-style 3D scene (CSS 3D — reliable on every device) -->
+  <div id="hero-scene" class="hero-scene" aria-hidden="true">
+    <div class="hs-layer" data-depth="0.6">
+      <div class="hs-orb hs-orb-1"></div>
+    </div>
+    <div class="hs-layer" data-depth="0.35">
+      <div class="hs-orb hs-orb-2"></div>
+      <div class="hs-orb hs-orb-3"></div>
+    </div>
+    <div class="hs-layer" data-depth="0.5">
+      <div class="hs-ring hs-ring-1"></div>
+    </div>
+    <div class="hs-layer" data-depth="0.8">
+      <div class="hs-ring hs-ring-2"></div>
+    </div>
+    <div class="hs-layer" data-depth="0.7">
+      <div class="hs-core hs-core-1"></div>
+      <div class="hs-core hs-core-2"></div>
+      <div class="hs-core hs-core-3"></div>
+      <div class="hs-core hs-core-4"></div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="relative z-10 container-site">
+    <div class={contentAlign}>
+      <!-- Brand pill -->
+      <div class={`mb-9 flex flex-wrap items-center gap-3 hero-fade ${centered ? "justify-center" : ""}`} style="animation-delay:0.05s">
+        <div class="glass-dark flex items-center gap-3 rounded-full py-1.5 pl-1.5 pr-5">
+          <Logo business={business} size={44} />
+          <span class="text-base font-semibold text-white">{business.name}</span>
+        </div>
+        <span class="glass-dark rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-widest" style="color:#fbbf24">
+          {business.category.replace(/-/g, " ")} · {city}
+        </span>
+      </div>
+
+      <!-- Staggered headline -->
+      <h1 id="hero-headline" class="hero-title font-primary text-[clamp(2.9rem,7vw,5.8rem)] font-medium leading-[1.02] text-white" style="letter-spacing:-0.03em">
+        {words.map((w, i) => (
+          <span class="w">{w}{i < words.length - 1 ? " " : ""}</span>
+        ))}
+      </h1>
+
+      <p class={`mt-7 max-w-xl text-lg font-light leading-relaxed text-white/75 md:text-xl hero-fade ${centered ? "mx-auto" : ""}`} style="animation-delay:0.55s">
+        {business.description}
+      </p>
+
+      <div class={`mt-10 flex flex-wrap items-center gap-4 hero-fade ${ctaWrap}`} style="animation-delay:0.7s">
+        <a href="#booking" class="btn-accent btn-lg">
+          <span data-i18n="book-exp">Book Experience</span>
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+        </a>
+        <a href="#services" class="btn-light btn-lg"><span data-i18n="explore">Explore Services</span></a>
+      </div>
+
+      <!-- Stats row -->
+      <div class={`mt-14 flex flex-wrap items-center gap-4 hero-fade ${ctaWrap}`} style="animation-delay:0.85s">
+        {hasReviews && (
+          <div class="glass-dark flex items-center gap-3 rounded-2xl px-5 py-3.5">
+            <div class="flex text-amber-400">
+              {Array.from({ length: 5 }).map(() => (
+                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+              ))}
+            </div>
+            <div class="text-sm text-white/75">
+              <strong class="text-white">{avgRating}</strong> rating · {reviewCount} reviews
+            </div>
+          </div>
+        )}
+        {services.length > 0 && (
+          <div class="glass-dark rounded-2xl px-5 py-3.5">
+            <span class="text-white text-xl font-semibold">{services.length}</span>
+            <span class="ml-2 text-sm text-white/70">premium services</span>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <!-- Split variant: large property/photo card on the right -->
+  {split && heroImage && (
+    <div class="absolute right-6 top-1/2 z-10 hidden w-[30rem] -translate-y-1/2 xl:block hero-fade" style="animation-delay:0.9s">
+      <div class="media media-ring overflow-hidden" style="border-radius:1.75rem; box-shadow:0 40px 100px -30px rgb(0 0 0/0.6)">
+        <img src={heroImage} alt={business.name} data-cat={business.category} class="aspect-[4/5] w-full object-cover" loading="eager" />
+      </div>
+      <div class="glass-dark absolute -bottom-6 -left-8 flex items-center gap-3 rounded-2xl px-5 py-4 shadow-card-lg animate-float-y">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full text-white" style="background:linear-gradient(135deg, hsl(var(--color-accent)), hsl(var(--color-primary)))">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        </span>
+        <div>
+          <p class="text-xs uppercase tracking-widest text-white/50">{business.category.replace(/-/g, " ")}</p>
+          <p class="text-sm font-semibold text-white">{business.location?.address ?? city}</p>
+        </div>
+      </div>
+    </div>
+  )}
+
+  <!-- Cinematic variant: floating rating + booking cards -->
+  {!split && !centered && (
+    <>
+      <div class="pointer-events-none absolute right-6 top-32 z-10 hidden xl:block hero-fade" style="animation-delay:1s">
+        <div class="glass-dark flex animate-float-y items-center gap-3 rounded-2xl px-5 py-4 shadow-card-lg">
+          <span class="flex h-10 w-10 items-center justify-center rounded-full text-white" style="background:linear-gradient(135deg, hsl(var(--color-accent)), hsl(var(--color-primary)))">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+          </span>
+          <div>
+            <p class="text-xs uppercase tracking-widest text-white/50">Rated</p>
+            <p class="text-sm font-semibold text-white">{avgRating} / 5 · {reviewCount}+ reviews</p>
+          </div>
+        </div>
+      </div>
+      <div class="pointer-events-none absolute bottom-40 right-16 z-10 hidden xl:block hero-fade" style="animation-delay:1.15s">
+        <div class="glass-dark flex animate-float-y items-center gap-3 rounded-2xl px-5 py-4 shadow-card-lg" style="animation-delay:1.5s">
+          <span class="flex h-10 w-10 items-center justify-center rounded-full text-white" style="background:linear-gradient(135deg, hsl(var(--color-secondary)), hsl(var(--color-primary)))">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+          </span>
+          <div>
+            <p class="text-xs uppercase tracking-widest text-white/50">Book online</p>
+            <p class="text-sm font-semibold text-white">Instant confirmation</p>
+          </div>
+        </div>
+      </div>
+    </>
+  )}
+
+  <!-- Services marquee -->
+  {services.length > 0 && (
+    <div class="absolute bottom-0 left-0 right-0 z-10 border-t border-white/10 bg-ink/60 backdrop-blur-md">
+      <div class="marquee py-4" style="animation-duration:28s">
+        {[0, 1].map(() => (
+          services.map((s) => (
+            <span class="flex items-center gap-6 whitespace-nowrap text-sm text-white/55">
+              {s.name}
+              <svg class="h-2 w-2 text-accent" viewBox="0 0 8 8" fill="currentColor"><path d="M4 0l1 3 3 1-3 1-1 3-1-3L0 4l3-1z" /></svg>
+            </span>
+          ))
+        ))}
+      </div>
+    </div>
+  )}
+
+  <!-- Scroll hint -->
+  <div class="absolute bottom-20 left-1/2 z-10 -translate-x-1/2 text-white/40 hero-fade" style="animation-delay:1.3s">
+    <div class="flex h-10 w-6 items-start justify-center rounded-full border border-white/25 p-1.5">
+      <div class="h-2 w-1 animate-bounce rounded-full bg-white/50"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { initCineImage, photosForCategory } from "@demo-site-generator/hero-engine";
+
+  const stage = document.getElementById("hero-3d");
+  const hasVideo = !!document.getElementById("hero-video");
+  const cfg = JSON.parse(stage?.dataset?.hero ?? "{}");
+  let handle: any = null;
+
+  // Pre-filter: only feed images that actually load (Places photos can 403 until
+  // billing is enabled). Falls back to free stock so the hero always shows imagery.
+  const fallbacks = photosForCategory((document.documentElement.dataset.cat) || "medspa");
+  const probe = (url: string) =>
+    new Promise<boolean>((resolve) => {
+      const img = new Image();
+      const done = () => resolve(true);
+      const fail = () => resolve(false);
+      img.onload = done;
+      img.onerror = fail;
+      img.src = url;
+      setTimeout(fail, 7000);
+    });
+
+  const loadHero = async () => {
+    if (!stage || hasVideo) return; // per-site video is the hero — no montage needed
+    const images: string[] = cfg.images ?? [];
+    const results = await Promise.all(images.map(probe));
+    const good = images.filter((_u, i) => results[i]);
+    const usable = good.length ? good : fallbacks;
+    handle = initCineImage({
+      container: stage,
+      images: usable,
+      cameraPath: cfg.cameraPath,
+      showGrain: true,
+      showVignette: true,
+      slideInterval: 5,
+      alternateMotion: true,
+    });
+  };
+  loadHero();
+
+  // Apply the AI-chosen color treatment to the hero overlays so each site has
+  // its own mood rather than the same default palette.
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+  const tint = (() => {
+    switch (cfg.colorScheme) {
+      case "warm": return "rgba(255,138,74,0.16)";
+      case "cool": return "rgba(80,140,220,0.18)";
+      case "neutral": return "rgba(0,0,0,0.22)";
+      case "monochrome": return "rgba(255,255,255,0.08)";
+      default: return accent ? `hsla(var(--color-accent) / 0.14)` : "rgba(255,255,255,0.06)";
+    }
+  })();
+  if (stage) {
+    stage.style.boxShadow = `inset 0 0 140px ${tint}`;
+  }
+
+  // Staggered word reveal for the headline
+  const h1 = document.getElementById("hero-headline")!;
+  const wordEls = h1.querySelectorAll<HTMLElement>(".w");
+  wordEls.forEach((w, i) => (w.style.transitionDelay = `${0.15 + i * 0.07}s`));
+  requestAnimationFrame(() => h1.classList.add("in"));
+
+  // Mouse parallax for the 3D scene
+  const scene = document.getElementById("hero-scene");
+  if (scene) {
+    const layers = Array.from(scene.querySelectorAll<HTMLElement>(".hs-layer"));
+    window.addEventListener("mousemove", (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2;
+      const y = (e.clientY / window.innerHeight - 0.5) * 2;
+      layers.forEach((layer) => {
+        const d = Number(layer.dataset.depth || 0.4);
+        layer.style.transform = `translate3d(${x * 34 * d}px, ${y * 26 * d}px, 0)`;
+      });
+    });
+  }
+
+  window.addEventListener("beforeunload", () => handle?.dispose());
+</script>
+
+<style>
+  .hero-title .w {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(1.1em) rotate(2deg);
+    filter: blur(10px);
+    transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1), transform 0.9s cubic-bezier(0.16, 1, 0.3, 1), filter 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .hero-title.in .w {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .hero-fade {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: heroFade 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes heroFade {
+    to { opacity: 1; transform: none; }
+  }
+
+  /* ===== Spline-style 3D scene ===== */
+  .hero-scene {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    perspective: 1200px;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .hs-layer {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    will-change: transform;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .hs-orb {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.85;
+    animation: hsFloat 7s ease-in-out infinite;
+  }
+  .hs-orb-1 {
+    width: 300px; height: 300px;
+    right: 12%; top: 20%;
+    background: radial-gradient(circle at 32% 30%, hsl(var(--color-accent) / 0.95), hsl(var(--color-accent) / 0.25) 45%, transparent 72%);
+    box-shadow: inset -28px -28px 80px hsl(0 0% 0% / 0.35), 0 40px 90px -30px hsl(var(--color-accent) / 0.5);
+  }
+  .hs-orb-2 {
+    width: 150px; height: 150px;
+    right: 6%; bottom: 22%;
+    background: radial-gradient(circle at 35% 30%, hsl(var(--color-secondary) / 0.9), hsl(var(--color-secondary) / 0.2) 50%, transparent 72%);
+    animation-delay: 1.4s;
+  }
+  .hs-orb-3 {
+    width: 70px; height: 70px;
+    right: 30%; top: 12%;
+    background: radial-gradient(circle at 35% 30%, hsl(0 0% 100% / 0.95), hsl(var(--color-accent) / 0.5) 60%, transparent 75%);
+    animation-delay: 2.4s;
+  }
+  .hs-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid hsl(var(--color-accent) / 0.45);
+    transform-style: preserve-3d;
+    animation: hsSpin 22s linear infinite;
+  }
+  .hs-ring-1 {
+    width: 380px; height: 380px;
+    right: 8%; top: 24%;
+    transform: rotateX(68deg) rotateZ(0deg);
+    box-shadow: 0 0 60px hsl(var(--color-accent) / 0.2) inset;
+  }
+  .hs-ring-2 {
+    width: 250px; height: 250px;
+    right: 18%; top: 40%;
+    border-color: hsl(0 0% 100% / 0.25);
+    transform: rotateX(72deg) rotateZ(40deg);
+    animation-direction: reverse;
+    animation-duration: 16s;
+  }
+  .hs-core {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, hsl(0 0% 100% / 0.9), transparent 70%);
+    box-shadow: 0 0 24px hsl(var(--color-accent) / 0.6);
+    animation: hsCore 5s ease-in-out infinite;
+  }
+  .hs-core-1 { width: 12px; height: 12px; right: 22%; top: 30%; }
+  .hs-core-2 { width: 8px; height: 8px; right: 12%; top: 46%; animation-delay: 0.8s; }
+  .hs-core-3 { width: 10px; height: 10px; right: 28%; top: 58%; animation-delay: 1.6s; }
+  .hs-core-4 { width: 6px; height: 6px; right: 16%; top: 34%; animation-delay: 2.2s; }
+
+  @keyframes hsFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-18px) scale(1.04); }
+  }
+  @keyframes hsSpin {
+    from { transform: rotateX(68deg) rotateZ(0deg); }
+    to { transform: rotateX(68deg) rotateZ(360deg); }
+  }
+  @keyframes hsCore {
+    0%, 100% { transform: translateY(0); opacity: 0.9; }
+    50% { transform: translateY(-10px); opacity: 0.4; }
+  }
+  @media (max-width: 1024px) {
+    .hero-scene { opacity: 0.5; }
+    .hs-orb-1 { width: 200px; height: 200px; right: -30px; }
+  }
+</style>

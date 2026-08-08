@@ -1,0 +1,96 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+import { photosForCategory } from "@demo-site-generator/hero-engine";
+
+interface Props {
+  business: BusinessData;
+}
+
+const { business } = Astro.props;
+const galleryImages = business.gallery?.length
+  ? business.gallery.map((g, i) => ({ url: g.url, alt: g.alt || `${business.name} ${i + 1}` }))
+  : photosForCategory(business.category).slice(0, 6).map((url, i) => ({ url, alt: `${business.name} ${i + 1}` }));
+const spans = ["lg:col-span-2 lg:row-span-2", "", "", "lg:row-span-2", "", "lg:col-span-2"];
+---
+
+<section id="gallery" class="section">
+  <div class="container-site">
+    <div class="flex flex-wrap items-end justify-between gap-6 reveal">
+      <div>
+        <p class="eyebrow mb-4">Gallery</p>
+        <h2 class="section-title">A look inside</h2>
+      </div>
+      <p class="max-w-sm text-sm leading-relaxed text-text-secondary">
+        Real moments, real spaces. A glimpse into what makes {business.name} special.
+      </p>
+    </div>
+
+    <div class="mt-14 grid auto-rows-[220px] grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {galleryImages.slice(0, 6).map((img, i) => (
+        <button
+          type="button"
+          data-gallery-item
+          data-src={img.url}
+          data-alt={img.alt}
+          class={`group relative block w-full overflow-hidden text-left focus:outline-none ${spans[i] ?? ""}`}
+          style={{ borderRadius: "1.5rem" }}
+        >
+          <img src={img.url} alt={img.alt} data-cat={business.category} class="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-105" loading="lazy" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/5 to-transparent opacity-70 transition-opacity duration-500 group-hover:opacity-90" style="border-radius:1.5rem"></div>
+          <div class="absolute inset-x-0 bottom-0 flex items-end justify-between p-5" style="border-radius:1.5rem">
+            <span class="translate-y-1 text-sm font-medium text-white opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
+              {img.alt}
+            </span>
+            <span class="flex h-9 w-9 translate-y-1 items-center justify-center rounded-full bg-white/15 text-white opacity-0 backdrop-blur-md transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6" /></svg>
+            </span>
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- Lightbox -->
+<div id="gallery-lightbox" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/85 p-6" style="backdrop-filter:blur(8px)">
+  <button id="lightbox-close" class="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20" aria-label="Close">
+    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+  </button>
+  <figure class="max-h-full">
+    <img id="lightbox-image" src="" alt="" class="mx-auto max-h-[80vh] max-w-full rounded-2xl object-contain shadow-card-lg" />
+    <figcaption id="lightbox-caption" class="mt-4 text-center text-sm text-white/80"></figcaption>
+  </figure>
+</div>
+
+<script>
+  const lightbox = document.getElementById("gallery-lightbox")!;
+  const lightboxImg = document.getElementById("lightbox-image") as HTMLImageElement;
+  const lightboxCaption = document.getElementById("lightbox-caption")!;
+  const closeBtn = document.getElementById("lightbox-close")!;
+
+  document.querySelectorAll<HTMLElement>("[data-gallery-item]").forEach((item) => {
+    item.addEventListener("click", () => {
+      lightboxImg.src = item.dataset.src ?? "";
+      lightboxImg.alt = item.dataset.alt ?? "";
+      lightboxCaption.textContent = item.dataset.alt ?? "";
+      lightbox.classList.remove("hidden");
+      lightbox.classList.add("flex");
+    });
+  });
+  closeBtn.addEventListener("click", () => {
+    lightbox.classList.add("hidden");
+    lightbox.classList.remove("flex");
+  });
+  lightbox.addEventListener("click", (e) => {
+    if (e.target === lightbox) {
+      lightbox.classList.add("hidden");
+      lightbox.classList.remove("flex");
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      lightbox.classList.add("hidden");
+      lightbox.classList.remove("flex");
+    }
+  });
+</script>

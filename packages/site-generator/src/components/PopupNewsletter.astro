@@ -1,0 +1,121 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+
+interface Props {
+  business: BusinessData;
+  leadsEndpoint?: string;
+  trigger?: "exit" | "timed" | "scroll";
+  delayMs?: number;
+}
+
+const { business, leadsEndpoint = "", trigger = "exit", delayMs = 30000 } = Astro.props;
+const popupData = JSON.stringify({ businessName: business.name, leadsEndpoint, trigger, delayMs });
+---
+
+<div id="newsletter-popup" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 p-4" style="backdrop-filter: blur(8px)" data-popup={popupData}>
+  <div class="relative w-full max-w-md overflow-hidden rounded-[1.5rem] shadow-card-lg" style="background:linear-gradient(135deg, hsl(var(--color-ink)), hsl(var(--color-primary-dark)))">
+    <button id="popup-close" class="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20" aria-label="Close">
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="relative px-8 pt-10">
+      <div class="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full opacity-40 blur-[80px]" style="background:radial-gradient(circle, hsl(var(--color-accent)/0.5), transparent 65%)"></div>
+      <p class="eyebrow mb-2" style="color:#fbbf24">Stay in the loop</p>
+      <h3 class="font-primary text-heading-lg font-bold text-white">Get exclusive offers</h3>
+      <p class="mt-2 text-body text-white/70">
+        Join our newsletter for {business.name} updates, specials, and insider tips.
+      </p>
+    </div>
+
+    <form id="popup-form" class="relative space-y-4 px-8 py-8">
+      <input
+        type="email"
+        name="email"
+        required
+        placeholder="Your email address"
+        class="field"
+        style="background:hsl(var(--color-ink-soft)); border-color:hsl(0 0% 100%/0.12); color:#fff"
+      />
+      <button type="submit" class="btn-accent w-full">Subscribe</button>
+      <p id="popup-status" class="hidden text-center text-body-sm" style="color:#fbbf24"></p>
+      <p class="text-center text-caption text-white/40">No spam. Unsubscribe anytime.</p>
+    </form>
+  </div>
+</div>
+
+<script>
+  const popupEl = document.getElementById("newsletter-popup")!;
+  const data = JSON.parse(popupEl.dataset.popup ?? "{}");
+  const shownKey = `popup-shown-${data.businessName}`;
+
+  if (localStorage.getItem(shownKey)) {
+    popupEl.style.display = "none";
+  } else {
+    let show = () => {
+      popupEl.classList.remove("hidden");
+      popupEl.classList.add("flex");
+      localStorage.setItem(shownKey, "1");
+    };
+
+    if (data.trigger === "exit") {
+      const onMouseOut = (e: MouseEvent) => {
+        if (!e.relatedTarget && e.clientY < 20) {
+          show();
+          document.removeEventListener("mouseout", onMouseOut);
+        }
+      };
+      document.addEventListener("mouseout", onMouseOut);
+    } else if (data.trigger === "timed") {
+      setTimeout(show, data.delayMs ?? 30000);
+    } else if (data.trigger === "scroll") {
+      const onScroll = () => {
+        if (window.scrollY > document.body.scrollHeight * 0.4) {
+          show();
+          window.removeEventListener("scroll", onScroll);
+        }
+      };
+      window.addEventListener("scroll", onScroll);
+    }
+  }
+
+  document.getElementById("popup-close")!.addEventListener("click", () => {
+    popupEl.classList.add("hidden");
+    popupEl.classList.remove("flex");
+  });
+
+  const form = document.getElementById("popup-form") as HTMLFormElement;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+    const status = document.getElementById("popup-status")!;
+
+    if (data.leadsEndpoint) {
+      try {
+        await fetch(data.leadsEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessName: data.businessName,
+            type: "newsletter",
+            email,
+          }),
+        });
+        status.textContent = "Thanks for subscribing!";
+      } catch {
+        status.textContent = "Please try again.";
+      }
+    } else {
+      status.textContent = "Thanks for subscribing!";
+    }
+
+    status.classList.remove("hidden");
+    form.style.display = "none";
+    localStorage.setItem(shownKey, "1");
+    setTimeout(() => {
+      popupEl.classList.add("hidden");
+      popupEl.classList.remove("flex");
+    }, 2000);
+  });
+</script>

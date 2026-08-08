@@ -1,0 +1,39 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+
+interface Props {
+  business: BusinessData;
+  purchaseUrl?: string;
+  purchaseAmount?: number;
+}
+
+const { business, purchaseUrl = "", purchaseAmount = 1499 } = Astro.props;
+const price = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 }).format(purchaseAmount);
+---
+
+<section id="purchase" class="fixed bottom-6 right-6 z-50">
+  {purchaseUrl ? (
+    <form action={purchaseUrl} method="post" class="glass-dark rounded-2xl p-4 shadow-card-lg" style="width:17rem">
+      <div class="mb-3">
+        <div class="text-caption font-semibold uppercase tracking-widest" style="color:#fbbf24">This demo is yours</div>
+        <div class="font-primary text-heading-md font-bold text-white mt-1">
+          Own it for {price} — pay once, it goes live
+        </div>
+      </div>
+      <input type="hidden" name="orderId" value={business.id ?? "demo-site"} />
+      <input type="hidden" name="description" value={`Website for ${business.name}`} />
+      <input type="hidden" name="amount" value={purchaseAmount} />
+      <input type="hidden" name="currency" value="ZAR" />
+      <button type="submit" class="btn-accent w-full">
+        Buy This Site
+      </button>
+    </form>
+  ) : (
+    <div class="glass-dark rounded-2xl p-4 shadow-card-lg" style="width:17rem">
+      <div class="text-caption font-semibold uppercase tracking-widest" style="color:#fbbf24">Demo site</div>
+      <p class="mt-1 text-body-sm text-white/70">
+        This is a preview. Contact the site owner to make it yours.
+      </p>
+    </div>
+  )}
+</section>

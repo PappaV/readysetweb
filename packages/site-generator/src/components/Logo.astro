@@ -1,0 +1,44 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+import { logoColors } from "../lib/logo";
+
+interface Props {
+  business: BusinessData;
+  size?: number;
+  showName?: boolean;
+  className?: string;
+  nameClass?: string;
+  subClass?: string;
+}
+
+const { business, size = 40, showName = true, className = "", nameClass = "text-white", subClass = "text-white/55" } = Astro.props;
+const colors = logoColors(business);
+const radius = size * 0.3;
+const name = business.logoName ?? business.name.split(/\s+/).slice(0, 2).join(" ");
+const sub = business.logoSub ?? business.category.replace(/-/g, " ");
+const initials = business.name.replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+---
+
+{business.logoUrl ? (
+  <a href="#top" class={`flex items-center gap-2 ${className}`}>
+    <img src={business.logoUrl} alt={`${business.name} logo`} width={size} height={size} style={{ borderRadius: `${radius}px` }} class="object-contain" loading="lazy" />
+    {showName && (
+      <span class="flex flex-col">
+        <span class={`font-primary text-lg font-bold leading-tight ${nameClass}`}>{name}</span>
+        {sub && <span class={`text-[0.62rem] font-semibold uppercase leading-none tracking-[0.22em] ${subClass}`}>{sub}</span>}
+      </span>
+    )}
+  </a>
+) : (
+  <a href="#top" class={`flex items-center gap-2.5 ${className}`}>
+    <span class="inline-flex shrink-0 items-center justify-center" style={{ width: size * 0.72, height: size * 0.72, borderRadius: `${radius}px`, background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` }}>
+      <span class="font-primary font-bold text-white" style={{ fontSize: size * 0.34 }}>{initials}</span>
+    </span>
+    {showName && (
+      <span class="flex flex-col">
+        <span class={`font-primary font-bold leading-tight ${nameClass}`} style={{ fontSize: Math.max(15, size * 0.5) }}>{name}</span>
+        {sub && <span class={`text-[0.62rem] font-semibold uppercase leading-none tracking-[0.22em] ${subClass}`}>{sub}</span>}
+      </span>
+    )}
+  </a>
+)}

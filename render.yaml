@@ -1,0 +1,59 @@
+# ReadySetWeb API — Render blueprint
+# Deploy: connect this repo, Render reads render.yaml automatically.
+services:
+  - type: web
+    name: readysetweb-api
+    runtime: docker
+    plan: starter # $7/mo — persistent, no idle shutdown (needed for Telegram polling)
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "3000"
+      # --- Secrets (set in Render dashboard for security, not committed) ---
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GCP_PLACES_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_ADMIN_CHAT_ID
+        sync: false
+      - key: DEPLOY_PROVIDER
+        value: netlify
+      - key: DEPLOY_TOKEN
+        sync: false
+      - key: DEPLOY_SITE_NAME
+        value: websiteauto
+      - key: OUTREACH_PROVIDER
+        value: resend
+      - key: OUTREACH_FROM_EMAIL
+        value: hello@readysetweb.co.za
+      - key: OUTREACH_FROM_NAME
+        value: ReadySetWeb
+      - key: OUTREACH_SENDER_NAME
+        value: Alex Carter
+      - key: OUTREACH_SENDER_COMPANY
+        value: ReadySetWeb
+      - key: RESEND_API_KEY
+        sync: false
+      - key: PAYMENT_PROVIDER
+        value: payfast
+      - key: PAYFAST_MERCHANT_ID
+        sync: false
+      - key: PAYFAST_MERCHANT_KEY
+        sync: false
+      - key: PAYFAST_PASSPHRASE
+        sync: false
+      - key: PAYFAST_SANDBOX
+        value: "true"
+      - key: PAYFAST_API_TOKEN
+        sync: false
+      # Public URL of THIS service (set after first deploy)
+      - key: PUBLIC_BASE_URL
+        sync: false
+    disk:
+      name: readysetweb-data
+      mountPath: /app/apps/generator-api/data
+      sizeGB: 1

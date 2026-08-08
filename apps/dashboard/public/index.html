@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Autopilot Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; border-bottom: 1px solid #1e293b; }
+  h1 { font-size: 22px; font-weight: 700; }
+  .badge { background: #1e293b; color: #94a3b8; padding: 6px 12px; border-radius: 20px; font-size: 13px; }
+  .badge.on { background: #065f46; color: #6ee7b7; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 24px 0; }
+  .card { background: #1e293b; border-radius: 12px; padding: 18px; border: 1px solid #334155; }
+  .card .value { font-size: 32px; font-weight: 700; margin-top: 6px; }
+  .card .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+  .card .sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .card.accent { border-color: #7c3aed; }
+  .card.green .value { color: #34d399; }
+  .card.amber .value { color: #fbbf24; }
+  .card.blue .value { color: #60a5fa; }
+  h2 { font-size: 16px; margin: 24px 0 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }
+  table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #334155; }
+  th { background: #16203a; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  tr:hover td { background: #233150; }
+  .status { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .status.awaiting-approval { background: #713f12; color: #fbbf24; }
+  .status.sent, .status.approved { background: #065f46; color: #6ee7b7; }
+  .status.delivered { background: #065f46; color: #6ee7b7; }
+  .status.rejected { background: #7f1d1d; color: #fca5a5; }
+  .status.discovered, .status.previewing { background: #1e3a5f; color: #93c5fd; }
+  .status.failed { background: #1e1b4b; color: #a5b4fc; }
+  #mode-badge.mode-auto { background: #065f46; color: #6ee7b7; }
+  #mode-badge.mode-review { background: #713f12; color: #fbbf24; }
+  a.preview { color: #60a5fa; text-decoration: none; }
+  a.preview:hover { text-decoration: underline; }
+  .actions { display: flex; gap: 6px; }
+  button { padding: 4px 10px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; font-weight: 600; }
+  button.sent { background: #065f46; color: #6ee7b7; }
+  button.reject { background: #7f1d1d; color: #fca5a5; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .goal { display: flex; align-items: center; gap: 12px; }
+  .progress-bar { flex: 1; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #a855f7); border-radius: 4px; transition: width 0.5s; }
+  .mrr-input { display: flex; gap: 8px; align-items: center; }
+  .mrr-input input { background: #334155; border: 1px solid #475569; color: #e2e8f0; padding: 6px 10px; border-radius: 6px; width: 120px; }
+  .mrr-input button { background: #7c3aed; color: white; padding: 6px 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>?? Autopilot Control Center</h1>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span id="mode-badge" class="badge">loading.</span>
+      <span id="status-badge" class="badge">loading.</span>
+    </div>
+  </header>
+
+  <div class="grid" id="stat-cards"></div>
+
+  <div class="card" style="margin-bottom: 8px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="label">Goal: R180,000 / month recurring</div>
+      <div class="goal" style="flex:1; margin-left:24px;">
+        <div class="progress-bar"><div class="progress-fill" id="goal-progress" style="width:0%"></div></div>
+        <span id="goal-pct" style="font-size:13px; color:#a78bfa; white-space:nowrap;">0%</span>
+      </div>
+    </div>
+    <div class="mrr-input" style="margin-top:12px;">
+      <span style="font-size:13px; color:#94a3b8;">Current MRR (R):</span>
+      <input id="mrr-value" type="number" placeholder="e.g. 5000" />
+      <button onclick="setMRR()">Save MRR</button>
+    </div>
+  </div>
+
+  <h2>Leads</h2>
+  <div style="overflow-x:auto;"><table>
+    <thead><tr>
+      <th>Business</th><th>Category</th><th>Status</th><th>Preview</th><th>Found</th><th>Actions</th>
+    </tr></thead>
+    <tbody id="leads-body"></tbody>
+  </table></div>
+
+  <h2>Jobs</h2>
+  <div style="overflow-x:auto;"><table>
+    <thead><tr>
+      <th>Business</th><th>Status</th><th>Preview</th><th>Created</th>
+    </tr></thead>
+    <tbody id="jobs-body"></tbody>
+  </table></div>
+</div>
+
+<script>
+  const state = { stats: null, leads: [], jobs: [] };
+
+  async function load() {
+    const [stats, leads, jobs] = await Promise.all([
+      fetch("/api/stats").then(r => r.json()),
+      fetch("/api/leads").then(r => r.json()),
+      fetch("/api/jobs").then(r => r.json()),
+    ]);
+    state.stats = stats; state.leads = leads; state.jobs = jobs;
+    render();
+  }
+
+  function render() {
+    const s = state.stats;
+    const modeBadge = document.getElementById("mode-badge");
+    modeBadge.className = "badge " + (s.mode === "auto" ? "mode-auto" : "mode-review");
+    modeBadge.innerHTML = (s.mode === "auto" ? "⚡ AUTO MODE" : "🛡 REVIEW MODE") + ` <button style="background:#1e293b;color:#94a3b8;padding:2px 8px;border-radius:10px;font-size:11px;cursor:pointer;" onclick="toggleMode()">switch</button>`;
+    document.getElementById("status-badge").textContent = `Leads: ${s.totalLeads} · Jobs: ${s.totalJobs}`;
+
+    const cards = [
+      { label: "Total Leads", value: s.totalLeads, cls: "blue" },
+      { label: "Awaiting Review", value: s.awaitingApproval, cls: "amber" },
+      { label: "Demo Sent", value: s.sent, cls: "green" },
+      { label: "Delivered", value: s.delivered ?? 0, cls: "green" },
+      { label: "Rejected", value: s.rejected, cls: "" },
+      { label: "Failed", value: s.failed, cls: "" },
+      { label: "Processed Companies", value: s.processedCompanies, cls: "blue" },
+      { label: "Projected MRR (50%)", value: "R" + s.revenue.projected.at50pct.toLocaleString(), cls: "accent" },
+    ];
+    document.getElementById("stat-cards").innerHTML = cards.map(c =>
+      `<div class="card ${c.cls}"><div class="label">${c.label}</div><div class="value">${c.value}</div></div>`
+    ).join("");
+
+    const pct = Math.min(100, Math.round((s.revenue.mrr / s.goal) * 100));
+    document.getElementById("goal-progress").style.width = pct + "%";
+    document.getElementById("goal-pct").textContent = pct + "%";
+    document.getElementById("mrr-value").value = s.revenue.mrr || "";
+
+    document.getElementById("leads-body").innerHTML = state.leads.slice(0, 100).map(l => `
+      <tr>
+        <td><strong>${escapeHtml(l.businessName)}</strong></td>
+        <td>${escapeHtml(l.category.replace(/-/g, " "))}</td>
+        <td><span class="status ${l.status}">${l.status.replace(/-/g, " ")}</span></td>
+        <td>${l.previewUrl ? `<a class="preview" href="${escapeHtml(l.previewUrl)}" target="_blank">open →</a>` : "—"}</td>
+        <td>${new Date(l.discoveredAt).toLocaleDateString()}</td>
+        <td class="actions">
+          <button class="sent" onclick="setStatus('${l.id}','sent')" ${l.status === 'sent' ? 'disabled' : ''}>Mark Sent</button>
+          <button class="sent" onclick="setStatus('${l.id}','delivered')" ${l.status === 'delivered' ? 'disabled' : ''}>Delivered</button>
+          <button class="reject" onclick="setStatus('${l.id}','rejected')" ${l.status === 'rejected' ? 'disabled' : ''}>Reject</button>
+        </td>
+      </tr>
+    `).join("");
+
+    document.getElementById("jobs-body").innerHTML = state.jobs.slice(0, 100).map(j => `
+      <tr>
+        <td><strong>${escapeHtml(j.businessName)}</strong></td>
+        <td><span class="status ${j.status}">${escapeHtml(j.status)}</span></td>
+        <td>${j.previewUrl ? `<a class="preview" href="${escapeHtml(j.previewUrl)}" target="_blank">open →</a>` : "—"}</td>
+        <td>${new Date(j.createdAt).toLocaleString()}</td>
+      </tr>
+    `).join("");
+  }
+
+  async function setStatus(id, status) {
+    await fetch(`/api/leads/${id}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    load();
+  }
+
+  async function setMRR() {
+    const v = document.getElementById("mrr-value").value;
+    await fetch("/api/mrr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value: Number(v) }),
+    });
+    load();
+  }
+
+  async function toggleMode() {
+    const next = state.stats.mode === "auto" ? "review" : "auto";
+    await fetch("/api/mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: next }),
+    });
+    load();
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  load();
+  setInterval(load, 15000);
+</script>
+</body>
+</html>

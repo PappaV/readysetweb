@@ -1,0 +1,110 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+
+interface Props {
+  business: BusinessData;
+}
+
+const { business } = Astro.props;
+const posts = business.blog ?? [];
+const fallbackImages = (business.gallery ?? []).map((g) => g.url);
+---
+
+<section id="blog" class="section">
+  <div class="container-site">
+    <div class="mx-auto max-w-2xl text-center reveal">
+      <p class="eyebrow mb-3 justify-center">Blog</p>
+      <h2 class="section-title mb-4">Tips &amp; Insights</h2>
+      <p class="text-body-lg text-text-secondary">
+        Helpful advice and the latest from {business.name}.
+      </p>
+    </div>
+
+    <div class="mt-14 grid gap-6 md:grid-cols-3">
+      {posts.map((post, i) => {
+        const cover = fallbackImages.length ? fallbackImages[i % fallbackImages.length] : undefined;
+        return (
+          <article class="card card-hover-line reveal group flex flex-col overflow-hidden" style={{ animationDelay: `${(i % 3) * 80}ms` }}>
+            <div class="relative h-44 overflow-hidden" style="background:linear-gradient(135deg, hsl(var(--color-accent)/0.2), hsl(var(--color-primary)/0.2))">
+              {cover ? (
+                <img src={cover} alt={post.title} data-cat={business.category} class="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-105" loading="lazy" />
+              ) : (
+                <div class="flex h-full items-center justify-center text-accent">
+                  <svg class="h-12 w-12 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+              )}
+              <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+            </div>
+            <div class="flex flex-1 flex-col p-6">
+              <div class="flex items-center gap-3 text-caption uppercase tracking-wider text-text-muted">
+                <span>{post.publishedAt}</span>
+                {post.tags.length > 0 && (
+                  <>
+                    <span class="h-1 w-1 rounded-full bg-text-muted/40"></span>
+                    <span>{post.tags[0]}</span>
+                  </>
+                )}
+              </div>
+              <h3 class="font-primary text-heading-md font-semibold text-text-primary mt-3 transition-colors group-hover:text-accent-dark">
+                {post.title}
+              </h3>
+              <p class="mt-2 flex-1 text-body-sm leading-relaxed text-text-secondary">
+                {post.excerpt}
+              </p>
+              <a href={`#blog-${post.id}`} class="mt-5 inline-flex items-center gap-2 text-body-sm font-semibold text-accent-dark transition-all group-hover:gap-3">
+                Read more
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+              </a>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  </div>
+</section>
+
+{posts.map((post) => (
+  <article id={`blog-${post.id}`} class="fixed inset-0 z-[90] hidden items-center justify-center bg-black/70 p-4" style="backdrop-filter: blur(8px)">
+    <div class="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-surface-elevated p-8 shadow-card-lg">
+      <button class="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-text-muted/10 text-text-secondary" data-close-blog>
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <p class="eyebrow mb-2">{post.publishedAt}</p>
+      <h3 class="font-primary text-heading-lg font-bold text-text-primary mb-4">{post.title}</h3>
+      <div class="space-y-4 text-body text-text-secondary">
+        {post.body.map((para) => <p>{para}</p>)}
+      </div>
+      {post.tags.length > 0 && (
+        <div class="mt-6 flex flex-wrap gap-2">
+          {post.tags.map((tag) => (
+            <span class="rounded-full bg-accent/10 px-3 py-1 text-caption text-accent">{tag}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  </article>
+))}
+
+<script>
+  document.querySelectorAll('[data-close-blog]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      (btn.closest("article") as HTMLElement).classList.add("hidden");
+      (btn.closest("article") as HTMLElement).classList.remove("flex");
+    });
+  });
+
+  document.querySelectorAll('a[href^="#blog-"]').forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const target = document.getElementById(link.getAttribute("href")!.slice(1));
+      if (target) {
+        target.classList.remove("hidden");
+        target.classList.add("flex");
+      }
+    });
+  });
+</script>

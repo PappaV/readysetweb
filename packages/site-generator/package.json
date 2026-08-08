@@ -1,0 +1,25 @@
+{
+  "name": "@demo-site-generator/site-generator",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "dev": "astro dev",
+    "preview": "astro preview",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@demo-site-generator/design-system": "workspace:*",
+    "@demo-site-generator/hero-engine": "workspace:*",
+    "@demo-site-generator/shared": "workspace:*",
+    "astro": "^4.9.0",
+    "gsap": "^3.12.5",
+    "three": "^0.162.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/tailwind": "^5.1.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "autopilot-runner",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@demo-site-generator/autopilot": "workspace:*",
+    "@demo-site-generator/shared": "workspace:*",
+    "@demo-site-generator/outreach": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "tsx": "^4.9.0",
+    "typescript": "^5.4.0"
+  }
+}

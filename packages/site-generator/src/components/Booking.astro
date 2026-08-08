@@ -1,0 +1,131 @@
+---
+import type { BusinessData } from "@demo-site-generator/shared";
+
+interface Props {
+  business: BusinessData;
+  checkoutUrl?: string;
+  leadsEndpoint?: string;
+}
+
+const { business, checkoutUrl = "/api/payments/checkout", leadsEndpoint = "" } = Astro.props;
+const bookingConfig = business.sections.find((s) => s.type === "booking")?.config as
+  | { data?: { heading?: string; subheading?: string; ctaText?: string; calendarNote?: string } }
+  | undefined;
+
+const services = business.services ?? [];
+const times = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+const data = JSON.stringify({ businessName: business.name, businessId: business.id, leadsEndpoint });
+---
+
+<section id="booking" class="section relative overflow-hidden" style="background:linear-gradient(135deg, hsl(var(--color-ink)), hsl(var(--color-primary-dark)))">
+  <div class="pointer-events-none absolute -left-32 top-0 h-96 w-96 rounded-full opacity-40 blur-[110px]" style="background:radial-gradient(circle, hsl(var(--color-accent)/0.4), transparent 65%)"></div>
+  <div class="pointer-events-none absolute -right-32 bottom-0 h-96 w-96 rounded-full opacity-30 blur-[110px]" style="background:radial-gradient(circle, hsl(var(--color-secondary)/0.5), transparent 65%)"></div>
+
+  <div class="container-site">
+    <div class="mx-auto max-w-2xl text-center reveal">
+      <p class="eyebrow mb-3 justify-center" style="color:#fbbf24">Book Now</p>
+      <h2 class="section-title mb-4 text-white">{bookingConfig?.data?.heading ?? "Reserve Your Visit"}</h2>
+      <p class="text-body-lg leading-relaxed text-white/70">
+        {bookingConfig?.data?.subheading ?? `Book your ${business.category.replace(/-/g, " ")} experience today — secure your slot with a small deposit.`}
+      </p>
+    </div>
+
+    <div class="mx-auto mt-12 max-w-lg reveal">
+      <div class="card-dark card-glass p-2" style="border-radius:1.5rem; background:hsl(var(--color-ink)/0.55)">
+        <form id="booking-form" class="space-y-5 p-7" data-config={data} action={checkoutUrl} method="post">
+          <input type="hidden" name="orderId" id="book-order-id" />
+          <input type="hidden" name="description" id="book-description" />
+          <input type="hidden" name="amount" id="book-amount" value="100" />
+          <input type="hidden" name="currency" value="ZAR" />
+
+          {services.length > 0 && (
+            <div>
+              <label class="label" style="color:hsl(var(--color-text-muted))">Service</label>
+              <select name="service" id="book-service" class="field" style="background:hsl(var(--color-ink-soft)); border-color:hsl(0 0% 100%/0.12); color:#fff">
+                {services.map((s) => (
+                  <option value={s.name}>{s.name}{s.price ? ` — ${s.price}` : ""}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label class="label" style="color:hsl(var(--color-text-muted))">Preferred Date</label>
+              <input type="date" id="book-date" name="date" required class="field" style="background:hsl(var(--color-ink-soft)); border-color:hsl(0 0% 100%/0.12); color-scheme:dark" />
+            </div>
+            <div>
+              <label class="label" style="color:hsl(var(--color-text-muted))">Time</label>
+              <select name="time" id="book-time" class="field" style="background:hsl(var(--color-ink-soft)); border-color:hsl(0 0% 100%/0.12); color:#fff">
+                {times.map((t) => <option value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label class="label" style="color:hsl(var(--color-text-muted))">Full Name</label>
+              <input type="text" name="name" id="book-name" required class="field" style="background:hsl(var(--color-ink-soft)); border-color:hsl(0 0% 100%/0.12); color:#fff" placeholder="Jane Smith" />
+            </div>
+            <div>
+              <label class="label" style="color:hsl(var(--color-text-muted))">Email</label>
+              <input type="email" name="email" id="book-email" required class="field" style="background:hsl(var(--color-ink-soft)); border-color:hsl(0 0% 100%/0.12); color:#fff" placeholder="jane@email.com" />
+            </div>
+          </div>
+
+          <button type="submit" class="btn-accent btn-lg w-full">
+            {bookingConfig?.data?.ctaText ?? "Book with R100 Deposit"}
+          </button>
+          <p class="text-center text-xs text-white/45">
+            {bookingConfig?.data?.calendarNote ?? "A R100 deposit secures your slot — the balance is payable on arrival. Fully refundable if you cancel 24h ahead."}
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const form = document.getElementById("booking-form") as HTMLFormElement;
+  if (form) {
+    const cfg = JSON.parse(form.dataset.config ?? "{}");
+    const dateInput = document.getElementById("book-date") as HTMLInputElement;
+    const serviceSel = document.getElementById("book-service") as HTMLSelectElement | null;
+    const timeSel = document.getElementById("book-time") as HTMLSelectElement;
+    const nameInput = document.getElementById("book-name") as HTMLInputElement;
+    const emailInput = document.getElementById("book-email") as HTMLInputElement;
+
+    // Default the date to tomorrow
+    const tomorrow = new Date(Date.now() + 86400000);
+    dateInput.value = tomorrow.toISOString().slice(0, 10);
+
+    form.addEventListener("submit", () => {
+      window.__track && window.__track("booking_start");
+      const service = serviceSel?.value || "booking";
+      const date = dateInput.value;
+      const time = timeSel.value;
+      const stamp = Date.now().toString(36);
+      (document.getElementById("book-order-id") as HTMLInputElement).value = `${cfg.businessId ?? "site"}-booking-${stamp}`;
+      (document.getElementById("book-description") as HTMLInputElement).value =
+        `${cfg.businessName} — ${service} on ${date} at ${time}`;
+
+      // Capture the booking intent even if payment isn't completed
+      if (cfg.leadsEndpoint) {
+        fetch(cfg.leadsEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessName: cfg.businessName,
+            type: "booking",
+            service,
+            name: nameInput.value,
+            email: emailInput.value,
+            date,
+            message: `Booking request: ${service} on ${date} at ${time}`,
+            page: window.location.pathname,
+          }),
+        }).catch(() => {});
+      }
+    });
+  }
+</script>
