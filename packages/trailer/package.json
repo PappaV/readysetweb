@@ -1,0 +1,17 @@
+{
+  "name": "@demo-site-generator/trailer",
+  "version": "0.0.1",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@demo-site-generator/shared": "workspace:*",
+    "playwright": "^1.44.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.12.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "96 Meent Guesthouse",
+  "tagline": "Cozy stays in the heart of George",
+  "category": "guesthouse-lodge",
+  "brandColors": {
+    "primary": "#8B5A2B",
+    "secondary": "#D2B48C",
+    "accent": "#F5DEB3"
+  },
+  "location": {
+    "city": "George",
+    "state": "Western Cape",
+    "country": "South Africa"
+  }
+}

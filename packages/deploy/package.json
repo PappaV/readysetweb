@@ -10,7 +10,8 @@
   "dependencies": {
     "@demo-site-generator/shared": "workspace:*",
     "@demo-site-generator/cinematic": "workspace:*",
-    "@demo-site-generator/hero-engine": "workspace:*"
+    "@demo-site-generator/hero-engine": "workspace:*",
+    "@demo-site-generator/trailer": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

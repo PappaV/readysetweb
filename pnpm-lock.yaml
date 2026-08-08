@@ -195,9 +195,15 @@ importers:
       '@demo-site-generator/cinematic':
         specifier: workspace:*
         version: link:../cinematic
+      '@demo-site-generator/hero-engine':
+        specifier: workspace:*
+        version: link:../hero-engine
       '@demo-site-generator/shared':
         specifier: workspace:*
         version: link:../shared
+      '@demo-site-generator/trailer':
+        specifier: workspace:*
+        version: link:../trailer
     devDependencies:
       '@types/node':
         specifier: ^20.12.0
@@ -368,6 +374,22 @@ importers:
         version: 5.9.3
 
   packages/telegram:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.12.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
+  packages/trailer:
+    dependencies:
+      '@demo-site-generator/shared':
+        specifier: workspace:*
+        version: link:../shared
+      playwright:
+        specifier: ^1.44.0
+        version: 1.62.1
     devDependencies:
       '@types/node':
         specifier: ^20.12.0
