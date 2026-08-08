@@ -3,6 +3,7 @@ import type { BusinessData } from "@demo-site-generator/shared";
 import { generateCSSVariables } from "@demo-site-generator/design-system";
 import { faviconDataUri } from "../lib/logo";
 import { photosForCategory } from "@demo-site-generator/hero-engine";
+import { selectTemplate } from "../lib/templates";
 import "../styles/global.css";
 
 interface Props {
@@ -13,13 +14,41 @@ interface Props {
 }
 
 const { business, siteTitle, siteDescription, ogImage } = Astro.props;
-const cssVars = generateCSSVariables(business.category);
-const cssVarsInline = Object.entries(cssVars)
+const { template, seed } = selectTemplate(business.name, business.category);
+
+const cssVars = generateCSSVariables(business.category, business.brandColors ?? undefined);
+const base = template.baseColors;
+const templateVars: Record<string, string> = {
+  // Template canvas: dark vs light mood overrides the category surface/ink/text.
+  "--color-surface": `${base.surface.h} ${base.surface.s}% ${base.surface.l}%`,
+  "--color-ink": `${base.ink.h} ${base.ink.s}% ${base.ink.l}%`,
+  "--color-ink-soft": `${base.ink.h} ${base.ink.s}% ${Math.min(100, base.ink.l + 8)}%`,
+  "--color-text-primary": `${base.text.h} ${base.text.s}% ${base.text.l}%`,
+  "--color-text-secondary": `${base.text.h} ${base.text.s}% ${Math.min(100, base.text.l + 28)}%`,
+  "--color-text-muted": `${base.text.h} ${base.text.s}% ${Math.min(100, base.text.l + 45)}%`,
+  "--color-border": `${base.text.h} ${base.text.s}% ${base.text.l + 40}%`,
+  "--color-border-strong": `${base.text.h} ${base.text.s}% ${base.text.l + 30}%`,
+  "--color-surface-muted": `${base.surface.h} ${base.surface.s}% ${Math.max(0, base.surface.l - 3)}%`,
+  "--color-surface-elevated": `${base.surface.h} ${base.surface.s}% ${Math.min(100, base.surface.l + 3)}%`,
+  // Template radii + typography.
+  "--radius-sm": "0.25rem",
+  "--radius-md": "0.5rem",
+  "--radius-lg": template.radius === "0px" ? "0.125rem" : `calc(${template.radius} * 0.55)`,
+  "--radius-xl": template.radius === "0px" ? "0.25rem" : `calc(${template.radius} * 0.75)`,
+  "--radius-2xl": template.radius,
+  "--radius-3xl": template.radius === "0px" ? "0.5rem" : `calc(${template.radius} * 1.5)`,
+  "--font-primary": template.fonts.display,
+  "--font-secondary": template.fonts.body,
+  "--tpl-seed": String(seed),
+};
+const mergedVars = { ...cssVars, ...templateVars };
+const cssVarsInline = Object.entries(mergedVars)
   .map(([k, v]) => `${k}: ${v};`)
   .join("");
 const title = siteTitle ?? `${business.name} — ${business.tagline ?? business.name}`;
 const description = siteDescription ?? business.description ?? business.name;
-const fontStack = business.heroConfig?.lighting === "moody" ? "dark" : "light";
+const fontStack = template.mood === "dark" ? "dark" : "light";
+const decorClass = template.decor.join(" ");
 
 // Structured data (rich results)
 const SCHEMA_TYPE: Record<string, string> = {
@@ -103,7 +132,7 @@ function normalizeHour(h: string, ampm?: string): string {
     <meta property="og:description" content={description} />
     {ogImage && <meta property="og:image" content={ogImage} />}
     <meta property="og:type" content="website" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content={template.mood === "dark" ? "#0a0b0e" : "#ffffff"} />
     <link rel="icon" type="image/svg+xml" href={faviconDataUri(business)} />
     <script is:inline set:html={JSON.stringify(schema)} type="application/ld+json" />
     {import.meta.env.PUBLIC_GA4_ID && (
@@ -122,12 +151,12 @@ function normalizeHour(h: string, ampm?: string): string {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:wght@400;500;600&family=Merriweather:wght@400;700&family=DM+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:wght@400;500;600;700&family=Merriweather:wght@400;700&family=DM+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Sora:wght@300;400;500;600;700;800&family=Archivo:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <script is:inline set:html={`document.documentElement.style.cssText = ${JSON.stringify(cssVarsInline)}`} />
   </head>
-  <body class="font-secondary antialiased bg-surface text-text-primary">
+  <body class={`font-secondary antialiased ${template.mood === "dark" ? "bg-ink text-white" : "bg-surface text-text-primary"} template-${template.id} ${decorClass}`}>
     <slot />
     <div
       aria-hidden="true"

@@ -1,6 +1,9 @@
 import express from "express";
 import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import { BusinessCategorySchema, MAINTENANCE_TIERS } from "@demo-site-generator/shared";
 import { z } from "zod";
 import { createJob, getJob, listJobs, updateJob } from "./store";

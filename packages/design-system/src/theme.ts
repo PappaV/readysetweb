@@ -6,9 +6,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function generateCSSVariables(category: BusinessCategory): Record<string, string> {
+export function generateCSSVariables(
+  category: BusinessCategory,
+  brandColors?: { primary?: string; secondary?: string; accent?: string }
+): Record<string, string> {
   const config = CATEGORY_DEFAULTS[category];
-  const { primary, secondary, accent } = config.brandColors;
+  // Prefer the business's own AI-detected brand colors so every site carries its
+  // client's identity; fall back to the category defaults when not detected.
+  const { primary, secondary, accent } = {
+    primary: brandColors?.primary ?? config.brandColors.primary,
+    secondary: brandColors?.secondary ?? config.brandColors.secondary,
+    accent: brandColors?.accent ?? config.brandColors.accent,
+  };
 
   const hexToHSL = (hex: string) => {
     const r = parseInt(hex.slice(1, 3), 16) / 255;

@@ -1,7 +1,7 @@
 import type { BusinessCategory } from "@demo-site-generator/shared";
+import { selectTemplate, type TemplateSelection, type SectionTone } from "./templates";
 
 export type HeroVariant = "cinematic" | "split" | "centered";
-export type SectionTone = "light" | "alt" | "tint" | "dark";
 
 export interface CategoryLayout {
   hero: HeroVariant;
@@ -98,6 +98,28 @@ export function layoutFor(category: BusinessCategory): CategoryLayout {
   return LAYOUTS[category] ?? LAYOUTS.medspa;
 }
 
+/**
+ * Resolve the full template-driven layout for a business: template identity,
+ * per-business seed, tones and section order all flow from the template so no
+ * two sites share a visual skeleton.
+ */
+export function templateLayoutFor(businessName: string, category: BusinessCategory): TemplateSelection & {
+  tones: Partial<Record<string, SectionTone>>;
+  sectionOrder: string[];
+} {
+  const sel = selectTemplate(businessName, category);
+  // Rotate the template's section order by the per-business seed so even two
+  // sites on the same template open with different sections.
+  const base = sel.template.sectionOrder;
+  const rot = (sel.seed % base.length + base.length) % base.length;
+  const sectionOrder = [...base.slice(rot), ...base.slice(0, rot)];
+  return {
+    ...sel,
+    tones: sel.template.tones,
+    sectionOrder,
+  };
+}
+
 /** Extra classes applied to a section wrapper based on its tone */
 export function toneClass(tone: SectionTone | undefined): string {
   switch (tone) {
@@ -105,6 +127,8 @@ export function toneClass(tone: SectionTone | undefined): string {
       return "section-alt";
     case "tint":
       return "section-tint";
+    case "dark":
+      return "section-dark";
     default:
       return "";
   }

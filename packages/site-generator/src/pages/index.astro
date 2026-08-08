@@ -20,7 +20,7 @@ import WhatsAppButton from "../components/WhatsAppButton.astro";
 import Chatbot from "../components/Chatbot.astro";
 import { business } from "../data/business";
 import Logo from "../components/Logo.astro";
-import { layoutFor, toneClass } from "../lib/layout";
+import { templateLayoutFor, toneClass } from "../lib/layout";
 
 // Always render the full standard set of sections, regardless of what the
 // generation data contains. `business.sections` only controls order/visibility.
@@ -52,13 +52,28 @@ const sectionMap = {
   blog: Blog,
 } as const;
 
+// Template-driven layout: distinct section order + tones per business so no two
+// sites share a visual skeleton.
+const tpl = templateLayoutFor(business.name, business.category);
+const layout = { tones: tpl.tones, feature: [] };
+const defaultSectionTypes = ALL_SECTION_TYPES.filter((t) => t !== "hero");
+const templateSectionIds = tpl.sectionOrder.filter((id) => defaultSectionTypes.includes(id as (typeof defaultSectionTypes)[number]));
+const templateOrder = new Map(templateSectionIds.map((id, i) => [id, i + 1]));
+
 // Preserve configured order where present; otherwise use the default order
 const configured = business.sections?.length
   ? business.sections.filter((s) => s.enabled !== false)
   : [];
 
-// Merge: always include all standard sections (fall back to default order for any missing)
-const defaultTypes = ALL_SECTION_TYPES.map((type, i) => ({ id: type, type, enabled: true, order: i + 1 }));
+// Merge: always include all standard sections, with the template's order winning
+// so every site has a distinct section rhythm. Enabled/visibility flags from the
+// generated data are still respected (boilerplate sections carry default orders).
+const defaultTypes = ALL_SECTION_TYPES.map((type, i) => ({
+  id: type,
+  type,
+  enabled: true,
+  order: type === "hero" ? 1 : (templateOrder.get(type) ?? i + 1),
+}));
 const merged: Array<{ id: string; type: (typeof ALL_SECTION_TYPES)[number]; enabled: boolean; order: number }> = [
   ...defaultTypes,
 ];
@@ -66,15 +81,14 @@ const merged: Array<{ id: string; type: (typeof ALL_SECTION_TYPES)[number]; enab
 for (const sec of configured) {
   const idx = merged.findIndex((m) => m.type === sec.type);
   if (idx >= 0) {
-    merged[idx] = { ...sec, order: sec.order ?? merged[idx].order };
+    // Keep the template order — generated order is boilerplate (1..N).
+    merged[idx] = { ...merged[idx], enabled: sec.enabled !== false };
   } else {
     merged.push({ ...sec, order: sec.order ?? merged.length + 1 });
   }
 }
 
 const sectionOrder = merged.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
-
-const layout = layoutFor(business.category);
 
 const PURCHASE_ENDPOINT = import.meta.env.PUBLIC_PURCHASE_ENDPOINT ?? "";
 const PURCHASE_AMOUNT = Number(import.meta.env.PUBLIC_PURCHASE_AMOUNT ?? 1499);

@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync }
 import { join, relative } from "node:path";
 import { BusinessData, BusinessDataSchema } from "@demo-site-generator/shared";
 import { heroVideoFilename } from "./render-hero-video";
+import { renderCinematicFrames } from "@demo-site-generator/cinematic";
 
 export interface BuildResult {
   distDir: string;
@@ -20,7 +21,19 @@ const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif", "svg", "ico", "
 
 export async function buildSite(business: BusinessData): Promise<BuildResult> {
   const withImages = await cacheImages(business);
-  const heroVideo = renderSiteHeroVideo(business, withImages);
+  // Movie-scene hero imagery: prefer the business's real photos; when the site
+  // has too few real photos, CREATIVELY generate unique cinematic scene backdrops
+  // (like film stills) from the business name, category and brand colors.
+  const id = (business.id ?? "site").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+  const realCount = (withImages.gallery ?? []).filter((g) => g.url.startsWith("/")).length;
+  const cinematicDir = join(PUBLIC_IMAGES_DIR, id, "cinematic");
+
+  let cinematicFrames: string[] = [];
+  if (realCount < 3) {
+    cinematicFrames = await renderCinematicFrames(business, cinematicDir, 6);
+  }
+
+  const heroVideo = renderSiteHeroVideo(business, withImages, cinematicFrames);
   const businessWithVideo = { ...withImages, heroVideoUrl: heroVideo };
   writeBusinessData(businessWithVideo);
   writeSeoFiles(businessWithVideo);
@@ -30,33 +43,46 @@ export async function buildSite(business: BusinessData): Promise<BuildResult> {
 }
 
 /**
- * Render a 15s cinematic hero MP4 from the business's real scraped photos
- * (cached locally by cacheImages). The video lands in public/images/<id>/
- * so the static build includes it and Hero.astro can play it.
- * Returns the public URL path, or undefined if rendering failed / no photos.
+ * Render a 15s cinematic hero MP4. Source priority:
+ *   1. the business's real scraped photos (when ≥3),
+ *   2. creative cinematic scene frames (generated when no real photos exist),
+ * so every site gets a bespoke, film-like hero.
+ * The video lands in public/images/<id>/ so the static build includes it and
+ * Hero.astro can play it.
+ * Returns the public URL path, or undefined if rendering failed / no source.
  */
-function renderSiteHeroVideo(business: BusinessData, withImages: BusinessData): string | undefined {
+function renderSiteHeroVideo(business: BusinessData, withImages: BusinessData, cinematicFrames: string[] = []): string | undefined {
   const id = (business.id ?? "site").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
   const dir = join(PUBLIC_IMAGES_DIR, id);
 
-  // Prefer locally cached real photos; fall back to external URLs (skip those we can't read).
-  const localImages = (withImages.gallery ?? [])
+  // Prefer real photos; fall back to generated cinematic scenes.
+  let sources: string[];
+  const realPhotos = (withImages.gallery ?? [])
     .map((g) => (g.url.startsWith("/") ? join(PUBLIC_IMAGES_DIR, id, g.url.split("/").pop() ?? "") : undefined))
     .filter((p): p is string => !!p);
 
-  if (localImages.length < 2) return undefined;
+  if (realPhotos.length >= 3) {
+    sources = realPhotos;
+  } else if (cinematicFrames.length >= 3) {
+    sources = cinematicFrames;
+  } else {
+    sources = realPhotos;
+  }
+
+  if (sources.length < 2) return undefined;
 
   const filename = heroVideoFilename(business.name);
   const outPath = join(dir, filename);
   const { renderHeroVideo } = require("./render-hero-video") as typeof import("./render-hero-video");
 
   const ok = renderHeroVideo({
-    images: localImages.slice(0, 6),
+    images: sources.slice(0, 8),
     outputPath: outPath,
     businessName: business.name,
     brandColors: business.brandColors ?? undefined,
     lighting: business.heroConfig?.lighting,
     colorScheme: business.heroConfig?.colorScheme,
+    stills: cinematicFrames.length >= 3,
     duration: 15,
   });
 

@@ -145,6 +145,35 @@ importers:
         specifier: ^5.4.0
         version: 5.9.3
 
+  packages/blender-hero:
+    dependencies:
+      '@demo-site-generator/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^20.12.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
+  packages/cinematic:
+    dependencies:
+      '@demo-site-generator/shared':
+        specifier: workspace:*
+        version: link:../shared
+      playwright:
+        specifier: ^1.44.0
+        version: 1.62.1
+    devDependencies:
+      '@types/node':
+        specifier: ^20.12.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
   packages/content-ai:
     dependencies:
       '@demo-site-generator/shared':
@@ -163,6 +192,9 @@ importers:
 
   packages/deploy:
     dependencies:
+      '@demo-site-generator/cinematic':
+        specifier: workspace:*
+        version: link:../cinematic
       '@demo-site-generator/shared':
         specifier: workspace:*
         version: link:../shared

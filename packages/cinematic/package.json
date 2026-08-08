@@ -1,15 +1,14 @@
 {
-  "name": "@demo-site-generator/deploy",
+  "name": "@demo-site-generator/cinematic",
   "version": "0.0.1",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@demo-site-generator/shared": "workspace:*",
-    "@demo-site-generator/cinematic": "workspace:*"
+    "playwright": "^1.44.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

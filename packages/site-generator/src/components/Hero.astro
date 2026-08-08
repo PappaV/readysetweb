@@ -2,7 +2,7 @@
 import type { BusinessData } from "@demo-site-generator/shared";
 import { photosForCategory, videosForCategory } from "@demo-site-generator/hero-engine";
 import Logo from "./Logo.astro";
-import { layoutFor, type HeroVariant } from "../lib/layout";
+import { selectTemplate } from "../lib/templates";
 
 interface Props {
   business: BusinessData;
@@ -22,26 +22,35 @@ const words = headline.split(/\s+/);
 const city = business.location?.city ?? "South Africa";
 const services = business.services ?? [];
 const heroImage = images[0];
-// Per-site 15s cinematic video (rendered from the business's real photos at build
-// time) is the primary hero. Only fall back to a generic stock video when no
-// per-site video or enough real photos exist.
+// Per-site 15s cinematic hero video (real photos, or creatively-generated movie
+// scenes when a business has no photos) is the primary hero. Falls back to a
+// generic stock video only when no per-site video exists.
 const heroVideo = business.heroVideoUrl ?? (images.length < 2 ? videosForCategory(business.category)[0] : undefined);
-// When a real video plays, the photo montage is unnecessary.
 const showPhotoStage = !heroVideo;
 
-const variant: HeroVariant = layoutFor(business.category).hero;
+const { template, hero } = selectTemplate(business.name, business.category);
 const cameraPath = business.heroConfig?.cameraPath ?? "drone-descend";
 const lighting = business.heroConfig?.lighting ?? "studio";
 const colorScheme = business.heroConfig?.colorScheme ?? "cool";
 const heroData = JSON.stringify({ images, cameraPath, lighting, colorScheme });
 
-const centered = variant === "centered";
-const split = variant === "split";
+// Layouts: cinematic / split-card / type-led / full-bleed / portrait
+const heroLayout = hero;
+const dark = template.mood === "dark";
+const centered = heroLayout === "type-led" || heroLayout === "cinematic";
+const split = heroLayout === "split-card" || heroLayout === "portrait";
 const contentAlign = centered ? "mx-auto max-w-3xl text-center" : "max-w-2xl lg:max-w-3xl";
 const ctaWrap = centered ? "justify-center" : "";
+const titleSize =
+  heroLayout === "type-led"
+    ? "text-[clamp(3.4rem,9vw,8.5rem)] font-semibold"
+    : heroLayout === "full-bleed"
+      ? "text-[clamp(2.6rem,6.5vw,5.6rem)]"
+      : "text-[clamp(2.9rem,7vw,5.8rem)] font-medium";
+const statsCompact = heroLayout === "type-led";
 ---
 
-<section id="top" class="relative flex min-h-screen items-center overflow-hidden bg-ink" style="padding-top:6rem; padding-bottom:4rem">
+<section id="top" class={`relative flex min-h-screen items-center overflow-hidden ${dark ? "bg-ink" : "bg-black"}`} style="padding-top:6rem; padding-bottom:4rem">
   <!-- Cinematic photo stage (only when no per-site video is available) -->
   {showPhotoStage && <div id="hero-3d" class="absolute inset-0" data-hero={heroData}></div>}
 
@@ -63,51 +72,39 @@ const ctaWrap = centered ? "justify-center" : "";
   )}
 
   <!-- Depth scrims -->
-  <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink via-ink/20 to-transparent"></div>
-  <div class={`pointer-events-none absolute inset-0 ${centered ? "bg-ink/40" : "bg-gradient-to-r from-ink/80 via-ink/25 to-transparent"}`}></div>
+  <div class={`pointer-events-none absolute inset-0 bg-gradient-to-t ${dark ? "from-ink via-ink/20" : "from-black/85 via-black/30"} to-transparent`}></div>
+  <div class={`pointer-events-none absolute inset-0 ${centered ? dark ? "bg-ink/40" : "bg-black/35" : dark ? "bg-gradient-to-r from-ink/85 via-ink/30 to-transparent" : "bg-gradient-to-r from-black/80 via-black/30 to-transparent"}`}></div>
+  {heroLayout === "full-bleed" && <div class="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent"></div>}
 
   <!-- Aurora glow -->
   <div class={`pointer-events-none absolute ${centered ? "left-1/2 top-0 -translate-x-1/2" : "-right-32 top-1/4"} h-[34rem] w-[34rem] rounded-full opacity-40 blur-[120px]`} style="background:radial-gradient(circle, hsl(var(--color-accent)/0.4), transparent 65%)"></div>
 
-  <!-- Spline-style 3D scene (CSS 3D — reliable on every device) -->
-  <div id="hero-scene" class="hero-scene" aria-hidden="true">
-    <div class="hs-layer" data-depth="0.6">
-      <div class="hs-orb hs-orb-1"></div>
-    </div>
-    <div class="hs-layer" data-depth="0.35">
-      <div class="hs-orb hs-orb-2"></div>
-      <div class="hs-orb hs-orb-3"></div>
-    </div>
-    <div class="hs-layer" data-depth="0.5">
-      <div class="hs-ring hs-ring-1"></div>
-    </div>
-    <div class="hs-layer" data-depth="0.8">
-      <div class="hs-ring hs-ring-2"></div>
-    </div>
-    <div class="hs-layer" data-depth="0.7">
-      <div class="hs-core hs-core-1"></div>
-      <div class="hs-core hs-core-2"></div>
-      <div class="hs-core hs-core-3"></div>
-      <div class="hs-core hs-core-4"></div>
-    </div>
-  </div>
+  <!-- Cinematic film treatment: subtle letterbox bars + film grain so the hero
+       reads as a movie scene rather than a webpage banner. -->
+  <div class="cine-bars pointer-events-none absolute inset-x-0 top-0 z-[3] h-10 border-b border-white/5" aria-hidden="true"></div>
+  <div class="cine-bars pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-10 border-t border-white/5" aria-hidden="true"></div>
+  <div class="cine-grain pointer-events-none absolute inset-0 z-[2]" aria-hidden="true"></div>
 
   <!-- Content -->
-  <div class="relative z-10 container-site">
-    <div class={contentAlign}>
+  <div class={`relative z-10 container-site ${heroLayout === "full-bleed" ? "flex items-end" : ""}`}>
+    <div class={`${contentAlign} ${heroLayout === "full-bleed" ? "pb-6" : ""}`}>
+      <!-- Movie-title eyebrow -->
+      <div class={`mb-6 flex items-center gap-4 hero-fade ${centered ? "justify-center" : ""}`} style="animation-delay:0.05s">
+        <span class="h-px w-10 bg-gradient-to-r from-transparent to-white/50"></span>
+        <span class="text-[0.7rem] font-semibold uppercase tracking-[0.34em] text-white/70">{business.category.replace(/-/g, " ")} · {city}</span>
+        <span class="h-px w-10 bg-gradient-to-l from-transparent to-white/50"></span>
+      </div>
+
       <!-- Brand pill -->
-      <div class={`mb-9 flex flex-wrap items-center gap-3 hero-fade ${centered ? "justify-center" : ""}`} style="animation-delay:0.05s">
+      <div class={`mb-7 flex flex-wrap items-center gap-3 hero-fade ${centered ? "justify-center" : ""}`} style="animation-delay:0.1s">
         <div class="glass-dark flex items-center gap-3 rounded-full py-1.5 pl-1.5 pr-5">
           <Logo business={business} size={44} />
           <span class="text-base font-semibold text-white">{business.name}</span>
         </div>
-        <span class="glass-dark rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-widest" style="color:#fbbf24">
-          {business.category.replace(/-/g, " ")} · {city}
-        </span>
       </div>
 
       <!-- Staggered headline -->
-      <h1 id="hero-headline" class="hero-title font-primary text-[clamp(2.9rem,7vw,5.8rem)] font-medium leading-[1.02] text-white" style="letter-spacing:-0.03em">
+      <h1 id="hero-headline" class={`hero-title font-primary ${titleSize} leading-[1.02] text-white`} style="letter-spacing:-0.03em">
         {words.map((w, i) => (
           <span class="w">{w}{i < words.length - 1 ? " " : ""}</span>
         ))}
@@ -126,7 +123,7 @@ const ctaWrap = centered ? "justify-center" : "";
       </div>
 
       <!-- Stats row -->
-      <div class={`mt-14 flex flex-wrap items-center gap-4 hero-fade ${ctaWrap}`} style="animation-delay:0.85s">
+      <div class={`${statsCompact ? "mt-16" : "mt-14"} flex flex-wrap items-center gap-4 hero-fade ${ctaWrap}`} style="animation-delay:0.85s">
         {hasReviews && (
           <div class="glass-dark flex items-center gap-3 rounded-2xl px-5 py-3.5">
             <div class="flex text-amber-400">
@@ -275,25 +272,29 @@ const ctaWrap = centered ? "justify-center" : "";
     stage.style.boxShadow = `inset 0 0 140px ${tint}`;
   }
 
+  // Cinematic scroll parallax on the hero video — slow, film-like drift as the
+  // visitor scrolls (subtle so readability is never lost).
+  const heroVideoEl = document.getElementById("hero-video") as HTMLVideoElement | null;
+  if (heroVideoEl) {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const scale = 1.08 + Math.min(y / 2400, 0.22);
+        heroVideoEl.style.transform = `scale(${scale.toFixed(3)})`;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+  }
+
   // Staggered word reveal for the headline
   const h1 = document.getElementById("hero-headline")!;
   const wordEls = h1.querySelectorAll<HTMLElement>(".w");
   wordEls.forEach((w, i) => (w.style.transitionDelay = `${0.15 + i * 0.07}s`));
   requestAnimationFrame(() => h1.classList.add("in"));
-
-  // Mouse parallax for the 3D scene
-  const scene = document.getElementById("hero-scene");
-  if (scene) {
-    const layers = Array.from(scene.querySelectorAll<HTMLElement>(".hs-layer"));
-    window.addEventListener("mousemove", (e) => {
-      const x = (e.clientX / window.innerWidth - 0.5) * 2;
-      const y = (e.clientY / window.innerHeight - 0.5) * 2;
-      layers.forEach((layer) => {
-        const d = Number(layer.dataset.depth || 0.4);
-        layer.style.transform = `translate3d(${x * 34 * d}px, ${y * 26 * d}px, 0)`;
-      });
-    });
-  }
 
   window.addEventListener("beforeunload", () => handle?.dispose());
 </script>
@@ -320,93 +321,22 @@ const ctaWrap = centered ? "justify-center" : "";
     to { opacity: 1; transform: none; }
   }
 
-  /* ===== Spline-style 3D scene ===== */
-  .hero-scene {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    perspective: 1200px;
-    pointer-events: none;
-    overflow: hidden;
+  /* ===== Cinematic film treatment ===== */
+  .cine-grain {
+    opacity: 0.07;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
   }
-  .hs-layer {
-    position: absolute;
-    inset: 0;
-    transform-style: preserve-3d;
-    will-change: transform;
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  .cine-bars {
+    background: linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.12) 30%, transparent 50%);
   }
-  .hs-orb {
-    position: absolute;
-    border-radius: 50%;
-    opacity: 0.85;
-    animation: hsFloat 7s ease-in-out infinite;
+  .cine-bars.bottom {
+    background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.12) 30%, transparent 50%);
   }
-  .hs-orb-1 {
-    width: 300px; height: 300px;
-    right: 12%; top: 20%;
-    background: radial-gradient(circle at 32% 30%, hsl(var(--color-accent) / 0.95), hsl(var(--color-accent) / 0.25) 45%, transparent 72%);
-    box-shadow: inset -28px -28px 80px hsl(0 0% 0% / 0.35), 0 40px 90px -30px hsl(var(--color-accent) / 0.5);
-  }
-  .hs-orb-2 {
-    width: 150px; height: 150px;
-    right: 6%; bottom: 22%;
-    background: radial-gradient(circle at 35% 30%, hsl(var(--color-secondary) / 0.9), hsl(var(--color-secondary) / 0.2) 50%, transparent 72%);
-    animation-delay: 1.4s;
-  }
-  .hs-orb-3 {
-    width: 70px; height: 70px;
-    right: 30%; top: 12%;
-    background: radial-gradient(circle at 35% 30%, hsl(0 0% 100% / 0.95), hsl(var(--color-accent) / 0.5) 60%, transparent 75%);
-    animation-delay: 2.4s;
-  }
-  .hs-ring {
-    position: absolute;
-    border-radius: 50%;
-    border: 2px solid hsl(var(--color-accent) / 0.45);
-    transform-style: preserve-3d;
-    animation: hsSpin 22s linear infinite;
-  }
-  .hs-ring-1 {
-    width: 380px; height: 380px;
-    right: 8%; top: 24%;
-    transform: rotateX(68deg) rotateZ(0deg);
-    box-shadow: 0 0 60px hsl(var(--color-accent) / 0.2) inset;
-  }
-  .hs-ring-2 {
-    width: 250px; height: 250px;
-    right: 18%; top: 40%;
-    border-color: hsl(0 0% 100% / 0.25);
-    transform: rotateX(72deg) rotateZ(40deg);
-    animation-direction: reverse;
-    animation-duration: 16s;
-  }
-  .hs-core {
-    position: absolute;
-    border-radius: 50%;
-    background: radial-gradient(circle, hsl(0 0% 100% / 0.9), transparent 70%);
-    box-shadow: 0 0 24px hsl(var(--color-accent) / 0.6);
-    animation: hsCore 5s ease-in-out infinite;
-  }
-  .hs-core-1 { width: 12px; height: 12px; right: 22%; top: 30%; }
-  .hs-core-2 { width: 8px; height: 8px; right: 12%; top: 46%; animation-delay: 0.8s; }
-  .hs-core-3 { width: 10px; height: 10px; right: 28%; top: 58%; animation-delay: 1.6s; }
-  .hs-core-4 { width: 6px; height: 6px; right: 16%; top: 34%; animation-delay: 2.2s; }
-
-  @keyframes hsFloat {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-18px) scale(1.04); }
-  }
-  @keyframes hsSpin {
-    from { transform: rotateX(68deg) rotateZ(0deg); }
-    to { transform: rotateX(68deg) rotateZ(360deg); }
-  }
-  @keyframes hsCore {
-    0%, 100% { transform: translateY(0); opacity: 0.9; }
-    50% { transform: translateY(-10px); opacity: 0.4; }
+  .cine-bars {
+    height: 3.5rem;
   }
   @media (max-width: 1024px) {
-    .hero-scene { opacity: 0.5; }
-    .hs-orb-1 { width: 200px; height: 200px; right: -30px; }
+    .cine-bars { height: 2rem; }
   }
 </style>
