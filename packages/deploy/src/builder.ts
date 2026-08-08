@@ -1,9 +1,10 @@
 import { execSync } from "node:child_process";
-import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
 import { BusinessData, BusinessDataSchema } from "@demo-site-generator/shared";
 import { heroVideoFilename } from "./render-hero-video";
 import { renderCinematicFrames } from "@demo-site-generator/cinematic";
+import { photosForBusiness } from "@demo-site-generator/hero-engine";
 
 export interface BuildResult {
   distDir: string;
@@ -21,19 +22,23 @@ const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif", "svg", "ico", "
 
 export async function buildSite(business: BusinessData): Promise<BuildResult> {
   const withImages = await cacheImages(business);
-  // Movie-scene hero imagery: prefer the business's real photos; when the site
-  // has too few real photos, CREATIVELY generate unique cinematic scene backdrops
-  // (like film stills) from the business name, category and brand colors.
+  // Movie-trailer hero imagery. Priority:
+  //   1. the business's REAL photos (Places / website / social),
+  //   2. premium free stock from the same industry (seeded per business),
+  //   3. creative cinematic scene backdrops (only when nothing above exists).
   const id = (business.id ?? "site").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
   const realCount = (withImages.gallery ?? []).filter((g) => g.url.startsWith("/")).length;
   const cinematicDir = join(PUBLIC_IMAGES_DIR, id, "cinematic");
+  const stockDir = join(PUBLIC_IMAGES_DIR, id, "stock");
+  const stockPool = photosForBusiness(business.category, (business.id ?? business.name).length * 31 + business.name.length, 8);
 
   let cinematicFrames: string[] = [];
-  if (realCount < 3) {
+  if (realCount < 2) {
     cinematicFrames = await renderCinematicFrames(business, cinematicDir, 6);
   }
 
-  const heroVideo = renderSiteHeroVideo(business, withImages, cinematicFrames);
+  const stockFrames = await downloadStockFrames(stockPool, stockDir);
+  const heroVideo = renderSiteHeroVideo(business, withImages, { cinematicFrames, stockFrames });
   const businessWithVideo = { ...withImages, heroVideoUrl: heroVideo };
   writeBusinessData(businessWithVideo);
   writeSeoFiles(businessWithVideo);
@@ -43,30 +48,38 @@ export async function buildSite(business: BusinessData): Promise<BuildResult> {
 }
 
 /**
- * Render a 15s cinematic hero MP4. Source priority:
- *   1. the business's real scraped photos (when ≥3),
- *   2. creative cinematic scene frames (generated when no real photos exist),
+ * Render a 15s movie-trailer hero MP4. Source priority:
+ *   1. the business's real scraped photos (when ≥2),
+ *   2. premium free industry stock photos (seeded subset — unique per business),
+ *   3. creative cinematic scene backdrops (when no photo source exists),
  * so every site gets a bespoke, film-like hero.
  * The video lands in public/images/<id>/ so the static build includes it and
  * Hero.astro can play it.
  * Returns the public URL path, or undefined if rendering failed / no source.
  */
-function renderSiteHeroVideo(business: BusinessData, withImages: BusinessData, cinematicFrames: string[] = []): string | undefined {
+function renderSiteHeroVideo(
+  business: BusinessData,
+  withImages: BusinessData,
+  frames: { cinematicFrames?: string[]; stockFrames?: string[] } = {}
+): string | undefined {
+  const { cinematicFrames = [], stockFrames = [] } = frames;
   const id = (business.id ?? "site").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
   const dir = join(PUBLIC_IMAGES_DIR, id);
 
-  // Prefer real photos; fall back to generated cinematic scenes.
-  let sources: string[];
+  // Real photos cached locally by cacheImages.
   const realPhotos = (withImages.gallery ?? [])
     .map((g) => (g.url.startsWith("/") ? join(PUBLIC_IMAGES_DIR, id, g.url.split("/").pop() ?? "") : undefined))
     .filter((p): p is string => !!p);
 
-  if (realPhotos.length >= 3) {
-    sources = realPhotos;
+  let sources: string[];
+  if (realPhotos.length >= 2) {
+    sources = realPhotos.slice(0, 8);
+  } else if (stockFrames.length >= 3) {
+    sources = stockFrames.slice(0, 8);
   } else if (cinematicFrames.length >= 3) {
     sources = cinematicFrames;
   } else {
-    sources = realPhotos;
+    sources = [...realPhotos, ...stockFrames];
   }
 
   if (sources.length < 2) return undefined;
@@ -157,6 +170,33 @@ async function cacheImages(business: BusinessData): Promise<BusinessData> {
   }
 
   return { ...business, gallery, logoUrl: logoUrl ?? undefined };
+}
+
+/** Download premium free industry stock frames locally so the hero video is
+ *  self-contained (no hotlinked CDN URLs that can expire). */
+async function downloadStockFrames(urls: string[], dir: string): Promise<string[]> {
+  mkdirSync(dir, { recursive: true });
+  const out: string[] = [];
+  for (let i = 0; i < urls.length; i++) {
+    const filename = `stock-${i}.jpg`;
+    const dest = join(dir, filename);
+    try {
+      if (!existsSync(dest) || statSync(dest).size < 5000) {
+        const res = await fetch(urls[i], {
+          headers: { "User-Agent": UA },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!res.ok) continue;
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length < 5000) continue;
+        writeFileSync(dest, buf);
+      }
+      out.push(dest);
+    } catch {
+      // skip a bad image
+    }
+  }
+  return out;
 }
 
 function writeBusinessData(business: BusinessData) {

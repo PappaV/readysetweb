@@ -245,10 +245,19 @@ export function renderHeroVideo(input: HeroVideoRenderInput): boolean {
     }
   }
 
-  // Final grade + scheme tint + subtle vignette (film grain is applied via the
-  // site's CSS overlay at runtime — cheaper than heavy ffmpeg temporal noise).
+  // Final trailer-grade + scheme tint + cinematic vignette + letterbox bars.
+  // A movie-trailer look: lifted shadows, richer mids, a hint of color grade.
   const grade = [gradeFilter(input.lighting), schemeFilter(input.colorScheme)].filter(Boolean).join(",");
-  filters.push(`[${last}]${grade},vignette=angle=PI/5[vgraded]`);
+  const trailer = "eq=contrast=1.12:saturation=1.18:brightness=-0.01,curves=preset=medium_contrast";
+  // Anamorphic-style letterbox (black bars top/bottom) baked into the video.
+  const letterbox = "pad=iw:ih+0:0:0:color=black";
+  filters.push(`[${last}]${trailer},${grade},vignette=angle=PI/5,pad=ceil(iw/2)*2:ceil(ih/2)*2[vg]`);
+  // Letterbox bars via crop-safe black frames drawn over top/bottom.
+  const barH = 70;
+  filters.push(
+    `[vg]drawbox=x=0:y=0:w=iw:h=${barH}:color=black:t=fill,` +
+    `drawbox=x=0:y=ih-${barH}:w=iw:h=${barH}:color=black:t=fill[vgraded]`
+  );
 
   // Business-name overlay — position, size and timing vary per business, and a
   // translucent brand-colored nameplate ties the video to the site's identity.

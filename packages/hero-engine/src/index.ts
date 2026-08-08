@@ -229,4 +229,4 @@ export { slowPanPath };
 export type { CameraPathName };
 export { initCineImage } from "./cineImage";
 export type { CineImageOptions, CineImageHandle } from "./cineImage";
-export { CATEGORY_PHOTOS, photosForCategory, CATEGORY_VIDEOS, videosForCategory } from "./photos";
+export { CATEGORY_PHOTOS, photosForCategory, photosForBusiness, CATEGORY_VIDEOS, videosForCategory } from "./photos";
