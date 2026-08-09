@@ -87,36 +87,59 @@ function cardSvg(card: CardDef, business: BusinessData, seed: number): string {
   const primary = business.brandColors?.primary ?? "#1c1c1c";
   const rand = mulberry32(seed);
   const glowX = 20 + Math.floor(rand() * 60);
-  const glowY = 30 + Math.floor(rand() * 40);
+  const glowY = 25 + Math.floor(rand() * 35);
 
-  const titleSize = card.title.length > 46 ? 52 : card.title.length > 30 ? 68 : 88;
+  const titleSize = card.title.length > 46 ? 50 : card.title.length > 30 ? 64 : 84;
 
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
     `<defs>` +
+    // Deep cinematic background: brand-tinted near-black with a subtle diagonal sheen
     `<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">` +
     `<stop offset="0" stop-color="${primary}"/>` +
+    `<stop offset="0.55" stop-color="#0a0b10"/>` +
     `<stop offset="1" stop-color="#000000"/>` +
     `</linearGradient>` +
+    // Brand glow orb
     `<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">` +
-    `<stop offset="0" stop-color="${accent}" stop-opacity="0.5"/>` +
+    `<stop offset="0" stop-color="${accent}" stop-opacity="0.42"/>` +
     `<stop offset="1" stop-color="${accent}" stop-opacity="0"/>` +
+    `</radialGradient>` +
+    // Top light sheen (studio film look)
+    `<linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">` +
+    `<stop offset="0" stop-color="#ffffff" stop-opacity="0"/>` +
+    `<stop offset="0.5" stop-color="#ffffff" stop-opacity="0.05"/>` +
+    `<stop offset="1" stop-color="#ffffff" stop-opacity="0"/>` +
+    `</linearGradient>` +
+    // Vignette
+    `<radialGradient id="vig" cx="0.5" cy="0.45" r="0.8">` +
+    `<stop offset="0.55" stop-color="#000" stop-opacity="0"/>` +
+    `<stop offset="1" stop-color="#000" stop-opacity="0.55"/>` +
     `</radialGradient>` +
     `</defs>` +
     `<rect width="${w}" height="${h}" fill="url(#bg)"/>` +
-    `<ellipse cx="${glowX}%" cy="${glowY}%" rx="45%" ry="32%" fill="url(#glow)"/>` +
+    `<ellipse cx="${glowX}%" cy="${glowY}%" rx="48%" ry="34%" fill="url(#glow)"/>` +
+    `<rect width="${w}" height="${h}" fill="url(#sheen)"/>` +
     // letterbox bars
-    `<rect x="0" y="0" width="${w}" height="80" fill="#000"/><rect x="0" y="${h - 80}" width="${w}" height="80" fill="#000"/>` +
+    `<rect x="0" y="0" width="${w}" height="84" fill="#000"/><rect x="0" y="${h - 84}" width="${w}" height="84" fill="#000"/>` +
+    // film grain
+    `<filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.06 0"/></filter><rect width="${w}" height="${h}" filter="url(#grain)" opacity="0.6"/>` +
+    `<rect width="${w}" height="${h}" fill="url(#vig)"/>` +
+    // top studio credits line
+    `<text x="${w / 2}" y="64" text-anchor="middle" font-family="'Arial Narrow',Arial,sans-serif" font-size="18" fill="#ffffff" fill-opacity="0.4" letter-spacing="10">A SITECRAFT FILM PRESENTATION</text>` +
     // accent rule above title
-    `<rect x="${w / 2 - 90}" y="400" width="180" height="3" fill="${accent}"/>` +
+    `<rect x="${w / 2 - 110}" y="382" width="220" height="3" fill="${accent}" opacity="0.9"/>` +
     // eyebrow
-    `<text x="${w / 2}" y="470" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="26" fill="#ffffff" fill-opacity="0.55" letter-spacing="8">${card.subtitle ? card.subtitle.toUpperCase() : "A FILM BY SITECRAFT"}</text>` +
+    `<text x="${w / 2}" y="452" text-anchor="middle" font-family="'Arial Narrow',Arial,sans-serif" font-size="27" fill="${accent}" letter-spacing="9" opacity="0.95">${card.subtitle ? card.subtitle.toUpperCase() : "COMING SOON"}</text>` +
     // main title
-    `<text x="${w / 2}" y="580" text-anchor="middle" font-family="Georgia,'Playfair Display',serif" font-size="${titleSize}" fill="#ffffff" font-weight="600" letter-spacing="2">${escapeXml(card.title)}</text>` +
-    // accent rule below
-    `<rect x="${w / 2 - 90}" y="630" width="180" height="3" fill="${accent}"/>` +
-    // bottom small line
-    `<text x="${w / 2}" y="${h - 150}" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" fill="${accent}" letter-spacing="6">● ● ●</text>` +
+    `<text x="${w / 2}" y="${560}" text-anchor="middle" font-family="Georgia,'Playfair Display',serif" font-size="${titleSize}" fill="#ffffff" font-weight="600" letter-spacing="3">${escapeXml(card.title)}</text>` +
+    // accent rule below title
+    `<rect x="${w / 2 - 110}" y="${612}" width="220" height="3" fill="${accent}" opacity="0.9"/>` +
+    // tagline
+    `<text x="${w / 2}" y="686" text-anchor="middle" font-family="'Arial Narrow',Arial,sans-serif" font-size="30" fill="#ffffff" fill-opacity="0.8" letter-spacing="6" font-style="italic">${escapeXml((business.tagline || "COMING SOON").toUpperCase())}</text>` +
+    // bottom divider + reel marker
+    `<rect x="${w / 2 - 60}" y="726" width="120" height="1" fill="#ffffff" fill-opacity="0.35"/>` +
+    `<text x="${w / 2}" y="${h - 130}" text-anchor="middle" font-family="'Arial Narrow',Arial,sans-serif" font-size="18" fill="${accent}" letter-spacing="8">●   ●   ●</text>` +
     `</svg>`
   );
 }

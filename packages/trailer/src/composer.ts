@@ -60,6 +60,8 @@ export interface TrailerInput {
   photos: string[];
   /** Local footage file paths (may be empty). */
   footage: string[];
+  /** From-scratch 3D hero frames (Blender) — the opening "scene" of the film. */
+  scenes?: string[];
   outputPath: string;
   duration?: number;
   fps?: number;
@@ -91,9 +93,13 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
   const seed = hashString(`${input.business.name}|${input.business.category}|trailer`);
   const rand = mulberry32(seed);
 
-  // Source order: footage (alive) + cards (their story) + photos (their reality).
+  // Source order: 3D scenes (hero product) open the film, then footage (alive),
+  // cards (their story), photos (their reality).
   const sources: string[] = [];
   const kinds: string[] = [];
+  for (const s of input.scenes?.slice(0, 4) ?? []) {
+    if (existsSync(s)) { sources.push(s); kinds.push("scene"); }
+  }
   for (const f of input.footage.slice(0, 3)) {
     if (existsSync(f)) { sources.push(f); kinds.push("video"); }
   }
@@ -111,7 +117,7 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
   const fade = 0.6; // fast trailer cuts
   const totalTime = duration + (n - 1) * fade;
 
-  const weights = kinds.map((k) => (k === "video" ? 1.6 : k === "card" ? 0.9 : 1.1));
+  const weights = kinds.map((k) => (k === "scene" ? 1.8 : k === "video" ? 1.5 : k === "card" ? 0.9 : 1.1));
   const weightSum = weights.reduce((a, b) => a + b, 0);
   const segLens = weights.map((w) => (totalTime * w) / weightSum);
 
@@ -126,14 +132,14 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
           `fps=${fps},setsar=1[v${i}]`
       );
     } else {
-      // cards + photos: loop-extend still to its segment length
+      // scenes/cards/photos: loop-extend still to its segment length
       args.push("-loop", "1", "-t", segLens[i].toFixed(2), "-i", src);
-      // Dramatic slow push-in on cards, gentle drift on photos.
-      const push = kinds[i] === "card" ? 1.04 : 1.02;
+      // Dramatic slow push-in on scenes + cards, gentle drift on photos.
+      const push = kinds[i] === "scene" ? 1.06 : kinds[i] === "card" ? 1.04 : 1.02;
       const d = Math.max(Math.round(segLens[i] * fps), 2);
       filters.push(
-        `[${i}:v]scale=${Math.round(W * 1.07)}:${Math.round(H * 1.07)}:force_original_aspect_ratio=increase,crop=${W}:${H},` +
-          `zoompan=z='${push}+0.00035*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=${d}:s=${W}x${H},fps=${fps},setsar=1[v${i}]`
+        `[${i}:v]scale=${Math.round(W * 1.1)}:${Math.round(H * 1.1)}:force_original_aspect_ratio=increase,crop=${W}:${H},` +
+          `zoompan=z='${push}+0.0004*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=${d}:s=${W}x${H},fps=${fps},setsar=1[v${i}]`
       );
     }
   });
@@ -153,7 +159,7 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
   const grade = gradeFilter(input.business.heroConfig?.lighting);
   const barH = 48;
   filters.push(
-    `[${last}]${grade},eq=contrast=1.1:saturation=1.12,vignette=angle=PI/5,` +
+    `[${last}]${grade},eq=contrast=1.08:saturation=1.12:brightness=0.03,vignette=angle=PI/6,` +
       `drawbox=x=0:y=0:w=iw:h=${barH}:color=black:t=fill,` +
       `drawbox=x=0:y=ih-${barH}:w=iw:h=${barH}:color=black:t=fill,format=yuv420p[vf]`
   );

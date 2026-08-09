@@ -4,6 +4,7 @@ import { join, relative } from "node:path";
 import { BusinessData, BusinessDataSchema } from "@demo-site-generator/shared";
 import { heroVideoFilename } from "./render-hero-video";
 import { renderTrailerCards, renderTrailer, downloadFootage, footageFor } from "@demo-site-generator/trailer";
+import { renderBlenderHero, blenderSeed } from "@demo-site-generator/blender-hero";
 
 export interface BuildResult {
   distDir: string;
@@ -21,22 +22,31 @@ const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif", "svg", "ico", "
 
 export async function buildSite(business: BusinessData): Promise<BuildResult> {
   const withImages = await cacheImages(business);
-  // Each business gets its OWN movie-trailer hero, built from its own data:
-  // title cards (name / tagline / services / real review) + its real photos +
-  // living industry footage, cut into a unique 15s film.
+  // Each business gets its OWN movie-trailer hero: a from-scratch 3D scene
+  // (photoreal product models built in Blender from the business's brand) opens
+  // the film, then title cards (name/services/review) + real photos + footage.
   const id = (business.id ?? "site").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
   const dir = join(PUBLIC_IMAGES_DIR, id);
   const cardsDir = join(dir, "cards");
+  const blenderDir = join(dir, "blender");
 
   // 1) Title cards from the client's own data.
   const { cards } = await renderTrailerCards({ business, outDir: cardsDir });
 
-  // 2) The client's real photos (already cached locally by cacheImages).
+  // 2) From-scratch 3D hero frames (no scraped images — pure 3D models).
+  const scenes = renderBlenderHero({
+    business,
+    outDir: blenderDir,
+    seed: blenderSeed(business.name, business.category),
+    stills: 8,
+  }).frames;
+
+  // 3) The client's real photos (already cached locally by cacheImages).
   const realPhotos = (withImages.gallery ?? [])
     .map((g) => (g.url.startsWith("/") ? join(dir, g.url.split("/").pop() ?? "") : undefined))
     .filter((p): p is string => !!p && existsSync(p));
 
-  // 3) Real footage: the client's own social videos when available, else living
+  // 4) Real footage: the client's own social videos when available, else living
   //    industry footage — seeded per business so no two sites match.
   const clientVideos = await downloadFootage(business.videos ?? [], join(dir, "client-video"));
   let footage = clientVideos;
@@ -45,7 +55,7 @@ export async function buildSite(business: BusinessData): Promise<BuildResult> {
     footage = await downloadFootage(footageUrls, join(dir, "footage"));
   }
 
-  // 4) Cut the trailer.
+  // 5) Cut the trailer.
   const filename = heroVideoFilename(business.name);
   const outPath = join(dir, filename);
   let ok = false;
@@ -53,6 +63,7 @@ export async function buildSite(business: BusinessData): Promise<BuildResult> {
     ok = renderTrailer({
       business,
       cards,
+      scenes,
       photos: realPhotos.slice(0, 4),
       footage,
       outputPath: outPath,
@@ -64,9 +75,9 @@ export async function buildSite(business: BusinessData): Promise<BuildResult> {
   writeBusinessData(businessWithVideo);
   writeSeoFiles(businessWithVideo);
 
-  // Source footage clips are build inputs only — don't ship them (the final hero
-  // MP4 already contains the footage). Removes ~30MB of dead weight per site.
-  for (const sub of ["footage", "client-video"]) {
+  // Source footage/blender frames are build inputs only — don't ship them (the
+  // final hero MP4 already contains the composited content).
+  for (const sub of ["footage", "client-video", "blender"]) {
     rmSync(join(dir, sub), { recursive: true, force: true });
   }
 

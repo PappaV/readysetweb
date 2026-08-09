@@ -11,6 +11,8 @@ export interface BlenderHeroInput {
   outDir: string;
   /** Deterministic seed — derive from business identity so it never changes. */
   seed: number;
+  /** Number of cinematic keyframes to render (default 8). */
+  stills?: number;
 }
 
 export interface BlenderHeroResult {
@@ -45,15 +47,9 @@ export function renderBlenderHero(input: BlenderHeroInput): BlenderHeroResult {
     return { frames: [], ok: false };
   }
 
-  const payloadPath = join(outDir, "business.json");
-  const payload = {
-    name: business.name,
-    tagline: business.tagline,
-    category: business.category,
-    brandColors: business.brandColors ?? undefined,
-    location: business.location ?? undefined,
-  };
-  writeFileSync(payloadPath, JSON.stringify(payload, null, 2), "utf-8");
+  const accent = business.brandColors?.accent ?? "#d9a441";
+  const primary = business.brandColors?.primary ?? "#1a2b3c";
+  const stills = String(input.stills ?? 8);
 
   try {
     execFileSync(
@@ -64,11 +60,13 @@ export function renderBlenderHero(input: BlenderHeroInput): BlenderHeroResult {
         "--python",
         sceneScript,
         "--",
-        payloadPath,
+        accent,
+        primary,
         outDir,
         String(seed),
+        stills,
       ],
-      { stdio: "ignore", timeout: 15 * 60_000 }
+      { stdio: "ignore", timeout: 20 * 60_000 }
     );
   } catch (err) {
     console.warn("[blender-hero] render failed:", (err as Error).message);
