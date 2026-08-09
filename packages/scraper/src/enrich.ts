@@ -1,5 +1,6 @@
 import { BrowserManager } from "./browser";
 import { ScraperConfig } from "./types";
+import { fetchInstagramMedia, mediaToUrls } from "./instagram";
 
 export interface BusinessEnrichmentInput {
   name: string;
@@ -17,6 +18,8 @@ export interface EnrichmentResult {
   contactEmail?: string;
   phone?: string;
   source: string;
+  /** Real video URLs scraped from the business's social profiles. */
+  videos?: string[];
 }
 
 interface RawPageData {
@@ -142,10 +145,11 @@ export class BusinessEnricher {
     }
 
     // 2) Social channels: find the business's Instagram/Facebook/TikTok and
-    // pull their REAL photos. These businesses have no website, but almost all
-    // have a social presence with actual imagery. User-supplied socialUrls are
-    // trusted directly; discovered ones must verify against the business name.
+    // pull their REAL photos AND videos. These businesses have no website, but
+    // almost all have a social presence with actual imagery. User-supplied
+    // socialUrls are trusted directly; discovered ones verify against the name.
     const socialImages: string[] = [];
+    const socialVideos: string[] = [];
     let socialLogo: string | undefined;
     if (gallery.length + websiteGallery.length < 6 || !logoUrl) {
       try {
@@ -153,9 +157,27 @@ export class BusinessEnricher {
           ? input.socialUrls.slice(0, 2)
           : (await this.findSocialProfiles(input.name, input.location)).slice(0, 2);
         for (const profile of profiles) {
-          const imgs = await this.scrapeProfileImages(profile);
-          socialImages.push(...imgs);
-          if (!socialLogo) socialLogo = await this.scrapeProfileLogo(profile);
+          // Prefer the official Instagram Graph API (full-res photos + videos)
+          // when a token is configured; fall back to HTML scraping otherwise.
+          if (profile.includes("instagram.com") && (process.env.IG_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN)) {
+            const username = profile.split("instagram.com/")[1]?.split(/[/?#]/)[0];
+            if (username) {
+              const ig = await fetchInstagramMedia(username, 15);
+              const urls = mediaToUrls(ig);
+              socialImages.push(...urls.photos.slice(0, 8));
+              socialVideos.push(...urls.videos.slice(0, 4));
+              if (ig.ok && ig.followers && !socialLogo) {
+                // Profile picture doubles as a logo when available.
+                socialLogo = urls.photos[0] && ig.media.find((m) => m.type === "IMAGE")?.mediaUrl;
+              }
+            }
+          } else {
+            const imgs = await this.scrapeProfileImages(profile);
+            socialImages.push(...imgs);
+            const vids = await this.scrapeProfileVideos(profile);
+            socialVideos.push(...vids);
+            if (!socialLogo) socialLogo = await this.scrapeProfileLogo(profile);
+          }
           if (socialImages.length >= 6) break;
         }
       } catch {
@@ -168,6 +190,7 @@ export class BusinessEnricher {
     return {
       logoUrl: logoUrl ?? socialLogo,
       gallery: merged,
+      videos: dedupe(socialVideos).slice(0, 4),
       pageText,
       contactEmail,
       phone,
@@ -429,9 +452,35 @@ export class BusinessEnricher {
     }
   }
 
-  /** Extract the business's profile picture (their logo) from a social page. */
-  private async scrapeProfileLogo(url: string): Promise<string | undefined> {
+  /** Pull real video URLs (reels/clips) from a social profile page. */
+  private async scrapeProfileVideos(url: string): Promise<string[]> {
     const page = await this.browser.newPage();
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await this.sleep(2500);
+      // Trigger lazy-loaded media.
+      for (let i = 0; i < 4; i++) {
+        await page.mouse.wheel(0, 900);
+        await this.sleep(700);
+      }
+      const vids = await page.evaluate(() => {
+        const out: string[] = [];
+        document.querySelectorAll("video source, video").forEach((v) => {
+          const src = (v as HTMLVideoElement).src || v.getAttribute("src");
+          if (src && src.startsWith("http")) out.push(src);
+        });
+        return out;
+      });
+      return dedupe(vids.filter((u) => /instagram|fbcdn|cdninstagram|tiktok|byteoversea|scontent/.test(u))).slice(0, 6);
+    } catch {
+      return [];
+    } finally {
+      await page.close();
+    }
+  }
+
+  /** Extract the business's profile picture (their logo) from a social page. */
+  private async scrapeProfileLogo(url: string): Promise<string | undefined> {    const page = await this.browser.newPage();
     try {
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await this.sleep(2500);

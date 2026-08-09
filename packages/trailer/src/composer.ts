@@ -83,7 +83,11 @@ function gradeFilter(lighting?: string): string {
 /** Build the ffmpeg command that assembles one 15s trailer from source clips. */
 export function composeTrailerArgs(input: TrailerInput): { args: string[]; label: string } {
   const duration = input.duration ?? 15;
-  const fps = input.fps ?? 24;
+  const fps = input.fps ?? 20;
+  // Heroes sit behind content, so 720p at a modest framerate is plenty and keeps
+  // the file tiny for fast loading.
+  const W = 1280;
+  const H = 720;
   const seed = hashString(`${input.business.name}|${input.business.category}|trailer`);
   const rand = mulberry32(seed);
 
@@ -105,10 +109,6 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
 
   const n = sources.length;
   const fade = 0.6; // fast trailer cuts
-  // Give footage the lion's share of time; cards get short punchy beats.
-  const videoSources = kinds.filter((k) => k === "video").length;
-  const cardSources = kinds.filter((k) => k === "card").length;
-  const photoSources = kinds.filter((k) => k === "photo").length;
   const totalTime = duration + (n - 1) * fade;
 
   const weights = kinds.map((k) => (k === "video" ? 1.6 : k === "card" ? 0.9 : 1.1));
@@ -122,7 +122,7 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
     if (kinds[i] === "video") {
       args.push("-i", src);
       filters.push(
-        `[${i}:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,` +
+        `[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},` +
           `fps=${fps},setsar=1[v${i}]`
       );
     } else {
@@ -132,8 +132,8 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
       const push = kinds[i] === "card" ? 1.04 : 1.02;
       const d = Math.max(Math.round(segLens[i] * fps), 2);
       filters.push(
-        `[${i}:v]scale=2048:1152:force_original_aspect_ratio=increase,crop=1920:1080,` +
-          `zoompan=z='${push}+0.00035*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=${d}:s=1920x1080,fps=${fps},setsar=1[v${i}]`
+        `[${i}:v]scale=${Math.round(W * 1.07)}:${Math.round(H * 1.07)}:force_original_aspect_ratio=increase,crop=${W}:${H},` +
+          `zoompan=z='${push}+0.00035*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=${d}:s=${W}x${H},fps=${fps},setsar=1[v${i}]`
       );
     }
   });
@@ -151,7 +151,7 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
 
   // Cinematic grade + letterbox + vignette.
   const grade = gradeFilter(input.business.heroConfig?.lighting);
-  const barH = 70;
+  const barH = 48;
   filters.push(
     `[${last}]${grade},eq=contrast=1.1:saturation=1.12,vignette=angle=PI/5,` +
       `drawbox=x=0:y=0:w=iw:h=${barH}:color=black:t=fill,` +
@@ -159,7 +159,8 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
   );
 
   args.push("-filter_complex", filters.join(";"), "-map", "[vf]");
-  args.push("-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart");
+  // Efficient web compression: slower preset + higher CRF = far smaller file.
+  args.push("-c:v", "libx264", "-preset", "slower", "-crf", "26", "-maxrate", "2.5M", "-bufsize", "5M", "-pix_fmt", "yuv420p", "-movflags", "+faststart");
   args.push("-r", String(fps), "-t", String(duration), input.outputPath);
 
   return { args, label: `${input.business.name} trailer (${n} sources)` };

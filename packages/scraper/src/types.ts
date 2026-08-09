@@ -45,5 +45,7 @@ export interface SocialScrapeResult {
   address?: string;
   rawText: string;
   images: string[];
+  /** Real video URLs (reels/videos) from the profile, if available. */
+  videos?: string[];
   profileUrl: string;
 }

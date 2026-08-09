@@ -27,7 +27,6 @@ export async function buildSite(business: BusinessData): Promise<BuildResult> {
   const id = (business.id ?? "site").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
   const dir = join(PUBLIC_IMAGES_DIR, id);
   const cardsDir = join(dir, "cards");
-  const footageDir = join(dir, "footage");
 
   // 1) Title cards from the client's own data.
   const { cards } = await renderTrailerCards({ business, outDir: cardsDir });
@@ -37,9 +36,14 @@ export async function buildSite(business: BusinessData): Promise<BuildResult> {
     .map((g) => (g.url.startsWith("/") ? join(dir, g.url.split("/").pop() ?? "") : undefined))
     .filter((p): p is string => !!p && existsSync(p));
 
-  // 3) Real industry footage (living motion), seeded per business.
-  const footageUrls = footageFor(business.category, (business.id ?? business.name).length * 31 + business.name.length, 3);
-  const footage = await downloadFootage(footageUrls, footageDir);
+  // 3) Real footage: the client's own social videos when available, else living
+  //    industry footage — seeded per business so no two sites match.
+  const clientVideos = await downloadFootage(business.videos ?? [], join(dir, "client-video"));
+  let footage = clientVideos;
+  if (footage.length === 0) {
+    const footageUrls = footageFor(business.category, (business.id ?? business.name).length * 31 + business.name.length, 3);
+    footage = await downloadFootage(footageUrls, join(dir, "footage"));
+  }
 
   // 4) Cut the trailer.
   const filename = heroVideoFilename(business.name);
@@ -59,6 +63,13 @@ export async function buildSite(business: BusinessData): Promise<BuildResult> {
   const businessWithVideo = { ...withImages, heroVideoUrl: heroVideo };
   writeBusinessData(businessWithVideo);
   writeSeoFiles(businessWithVideo);
+
+  // Source footage clips are build inputs only — don't ship them (the final hero
+  // MP4 already contains the footage). Removes ~30MB of dead weight per site.
+  for (const sub of ["footage", "client-video"]) {
+    rmSync(join(dir, sub), { recursive: true, force: true });
+  }
+
   runBuild();
   const files = collectFiles(DIST_DIR);
   return { distDir: DIST_DIR, files, business: businessWithVideo };

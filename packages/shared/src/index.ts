@@ -289,6 +289,8 @@ export const BusinessDataSchema = z.object({
   heroConfig: HeroConfigSchema.nullish(),
   /** Public URL of the per-site 15s cinematic hero video (rendered at build). */
   heroVideoUrl: z.string().nullish(),
+  /** Real video URLs scraped from the business's social media, usable in the hero trailer. */
+  videos: z.array(z.string().url()).nullish(),
   sections: z.array(SectionConfigSchema).default([]),
   extractedAt: z.string().datetime().nullish(),
   sourceUrls: z.array(z.string().url()).default([]),

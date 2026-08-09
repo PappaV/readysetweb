@@ -25,6 +25,14 @@ export class BrowserManager {
         viewport: this.config.viewport,
         locale: "en-US",
       });
+      // esbuild/tsx injects a `__name` helper into function bodies that get
+      // serialized into page.evaluate. Define it in the page so those calls
+      // resolve (otherwise evaluate throws "__name is not defined").
+      await this.context.addInitScript(() => {
+        (globalThis as any).__name = (fn: unknown, name?: string) => fn;
+        (globalThis as any).__importStar = (m: unknown) => m;
+        (globalThis as any).__importDefault = (m: unknown) => m;
+      });
     }
     return this.context;
   }
