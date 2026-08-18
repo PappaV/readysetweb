@@ -162,6 +162,17 @@ export class PlacesClient {
   }
 
   /**
+   * Search without the "no website" filter. Some categories (real estate agents)
+   * almost always have a website, so the pitch is an upgrade/walkthrough rather
+   * than "you have no site". Optionally keep only places with a website.
+   */
+  async searchBusinesses(params: PlaceSearchParams, opts: { requireWebsite?: boolean } = {}): Promise<PlaceDiscovery[]> {
+    const results = await this.searchPlaces(params);
+    const filtered = results.filter((r) => r.businessStatus !== "CLOSED_PERMANENTLY");
+    return opts.requireWebsite ? filtered.filter((r) => !!r.websiteUri) : filtered;
+  }
+
+  /**
    * Convert photo references (from search/place details) into direct image URLs.
    * These URLs embed the API key and can be used directly as <img> src.
    */

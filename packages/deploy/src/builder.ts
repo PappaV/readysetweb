@@ -146,13 +146,41 @@ async function cacheImages(business: BusinessData): Promise<BusinessData> {
     gallery.push(ok ? { ...item, url: `/images/${id}/${filename}` } : item);
   }
 
+  // Bundle walkthrough room photos the same way so the guided tour's imagery is
+  // permanent (hybrid: real photos become local files, missing ones fall back).
+  const roomPhotoFiles: string[] = [];
+  if (business.walkthrough?.rooms?.length) {
+    for (let i = 0; i < business.walkthrough.rooms.length; i++) {
+      const room = business.walkthrough.rooms[i];
+      if (!room.photoUrl || room.photoUrl.startsWith("/") || room.photoUrl.startsWith("data:")) continue;
+      const ext = room.photoUrl.split("?")[0].match(/\.(png|webp|gif|jpe?g|avif)/i)?.[1]?.toLowerCase() ?? "jpg";
+      const filename = `room-${i}.${ext}`;
+      const ok = await download(room.photoUrl, filename);
+      if (ok) roomPhotoFiles.push(`/images/${id}/${filename}`);
+    }
+  }
+
   let logoUrl = business.logoUrl;
   if (logoUrl && !logoUrl.startsWith("/") && !logoUrl.startsWith("data:")) {
     const ok = await download(logoUrl, "logo.png");
     if (ok) logoUrl = `/images/${id}/logo.png`;
   }
 
-  return { ...business, gallery, logoUrl: logoUrl ?? undefined };
+  // Rewrite the tour's room photos to their local copies (keep order aligned).
+  let walkthrough = business.walkthrough;
+  if (roomPhotoFiles.length && walkthrough?.rooms) {
+    let used = 0;
+    walkthrough = {
+      ...walkthrough,
+      rooms: walkthrough.rooms.map((room) => {
+        if (!room.photoUrl || room.photoUrl.startsWith("/") || room.photoUrl.startsWith("data:")) return room;
+        const local = roomPhotoFiles[used++];
+        return local ? { ...room, photoUrl: local } : room;
+      }),
+    };
+  }
+
+  return { ...business, gallery, logoUrl: logoUrl ?? undefined, walkthrough };
 }
 
 function writeBusinessData(business: BusinessData) {

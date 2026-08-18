@@ -25,7 +25,18 @@ export interface AutopilotConfig {
   /** Max total AI spend before pausing (USD) */
   maxDailyCostUSD?: number;
   /** Categories + locations to scan */
-  targets: { category: BusinessCategory; locations: string[]; keywords: string[] }[];
+  targets: {
+    category: BusinessCategory;
+    locations: string[];
+    keywords: string[];
+    /**
+     * Which places to target. "no-website" (default) is the classic pitch — the
+     * business has no site at all. "any" targets all qualifying businesses even
+     * if they have a website (pitch = upgrade + walkthrough). "with-website"
+     * targets only businesses that DO have a site (best for walkthrough upsells).
+     */
+    websiteFilter?: "no-website" | "any" | "with-website";
+  }[];
   /** generator-api base URL — used to register previews so payments can trigger go-live */
   apiUrl?: string;
   /** Max Google Places searchText calls per day (free quota is 100/day) */
@@ -322,13 +333,14 @@ export class AutopilotEngine {
     }
   }
 
-  private async discoverLeads(target: { category: BusinessCategory; locations: string[]; keywords: string[] }) {
+  private async discoverLeads(target: { category: BusinessCategory; locations: string[]; keywords: string[]; websiteFilter?: "no-website" | "any" | "with-website" }) {
     const fresh: Array<{ name: string; place: unknown }> = [];
     const max = this.config.maxPerCycle ?? 3;
     const maxSearches = this.config.maxDailySearches ?? 80;
     const cacheTtl = this.config.discoveryCacheTtlMs ?? 12 * 3600_000;
     const today = new Date().toISOString().slice(0, 10);
     const meta = this.store.getMeta();
+    const websiteFilter = target.websiteFilter ?? "no-website";
 
     // Reset the daily search counter when the date rolls over
     let searchesUsed = meta.searchDay === today ? Number(meta.searchesToday ?? 0) : 0;
@@ -354,10 +366,17 @@ export class AutopilotEngine {
       if (!freshEnough) {
         if (searchesUsed >= maxSearches) break; // daily search budget reached
         try {
-          places = await this.places.findBusinessesWithoutWebsite({
-            textQuery: `${target.keywords.join(" ")} in ${location}`,
-            maxResults: 10,
-          });
+          if (websiteFilter === "no-website") {
+            places = await this.places.findBusinessesWithoutWebsite({
+              textQuery: `${target.keywords.join(" ")} in ${location}`,
+              maxResults: 10,
+            });
+          } else {
+            places = await this.places.searchBusinesses(
+              { textQuery: `${target.keywords.join(" ")} in ${location}`, maxResults: 10 },
+              { requireWebsite: websiteFilter === "with-website" }
+            );
+          }
         } catch (err) {
           console.error(`[autopilot] places search failed for ${location}:`, (err as Error).message);
           this.telegram.send({
@@ -443,6 +462,7 @@ export class AutopilotEngine {
       logoUrl = enriched.logoUrl;
       gallery = enriched.gallery.length ? enriched.gallery : undefined;
       contactEmail = enriched.contactEmail;
+      this.store.updateLead(leadId, { videos: enriched.videos?.length ? enriched.videos : undefined });
       if (enriched.pageText) {
         const textBlock = `WEBSITE CONTENT (${enriched.source}):\n${enriched.pageText}`;
         usedRawData = [rawData, textBlock].filter(Boolean).join("\n\n");
@@ -583,6 +603,9 @@ export class AutopilotEngine {
       phone: lead.phone,
       email: lead.contactEmail,
       portalUrl,
+      // Real-estate leads are discovered as agents who already have a website,
+      // so the pitch is a walkthrough upgrade, not "you have no site".
+      hasWebsite: lead.category === "real-estate-agent" || lead.category === "real-estate-developer",
     };
 
     if (lead.contactEmail && this.outreachManager) {
@@ -591,9 +614,12 @@ export class AutopilotEngine {
     }
 
     if (lead.phone && this.whatsapp) {
-      const body =
-        `Hi,\n\nI noticed ${lead.businessName} doesn't have a website yet. I went ahead and built a quick demo for you:\n\n${demoUrl}\n\n` +
-        `It's a modern site with your real info, ready to go. Would it be useful if we made this yours?\n\n— ${ctx.senderName}\n${ctx.senderCompany}`;
+      const isRealEstate = lead.category === "real-estate-agent" || lead.category === "real-estate-developer";
+      const body = isRealEstate
+        ? `Hi,\n\nI put together a demo for ${lead.businessName} that lets buyers take a guided room-by-room walkthrough of a property before calling:\n\n${demoUrl}\n\n` +
+          `It's a modern site with your real info, ready to go. Would it be useful if we made this yours?\n\n— ${ctx.senderName}\n${ctx.senderCompany}`
+        : `Hi,\n\nI noticed ${lead.businessName} doesn't have a website yet. I went ahead and built a quick demo for you:\n\n${demoUrl}\n\n` +
+          `It's a modern site with your real info, ready to go. Would it be useful if we made this yours?\n\n— ${ctx.senderName}\n${ctx.senderCompany}`;
       await this.whatsapp.sendText(WhatsAppClient.normalizePhone(lead.phone), body);
       return { channel: "whatsapp", to: lead.phone };
     }
@@ -640,6 +666,7 @@ export class AutopilotEngine {
         phone: lead.phone,
         email: lead.contactEmail,
         portalUrl,
+        hasWebsite: lead.category === "real-estate-agent" || lead.category === "real-estate-developer",
       };
 
       try {

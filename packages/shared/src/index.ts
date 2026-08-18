@@ -222,6 +222,33 @@ export const HeroConfigSchema = z.object({
   colorScheme: z.enum(["brand", "warm", "cool", "neutral", "monochrome"]),
 });
 
+/**
+ * A single room of a guided property walkthrough. Coordinates are floor-plan
+ * percentages (0–100) so the tour renders on a clean SVG grid regardless of
+ * image aspect ratios.
+ */
+export const WalkthroughRoomSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** One or two sentences of guided narration for this stop. */
+  description: z.string().default(""),
+  /** Real photo when available (scraped / Places); null falls back to category stock. */
+  photoUrl: z.union([z.string().url(), z.string().regex(/^\//, "must be absolute path or URL")]).nullish(),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  width: z.number().min(5).max(100),
+  height: z.number().min(5).max(100),
+});
+
+export const WalkthroughSchema = z.object({
+  heading: z.string().default("Take the walkthrough"),
+  intro: z.string().default("A guided, room-by-room tour of this property."),
+  rooms: z.array(WalkthroughRoomSchema).default([]),
+});
+
+export type Walkthrough = z.infer<typeof WalkthroughSchema>;
+export type WalkthroughRoom = z.infer<typeof WalkthroughRoomSchema>;
+
 export const SectionConfigSchema = z.object({
   id: z.string(),
   type: z.enum([
@@ -229,6 +256,7 @@ export const SectionConfigSchema = z.object({
     "about",
     "services",
     "gallery",
+    "walkthrough",
     "reviews",
     "contact",
     "faq",
@@ -291,6 +319,8 @@ export const BusinessDataSchema = z.object({
   heroVideoUrl: z.string().nullish(),
   /** Real video URLs scraped from the business's social media, usable in the hero trailer. */
   videos: z.array(z.string().url()).nullish(),
+  /** Guided room-by-room property tour (real-estate sites). */
+  walkthrough: WalkthroughSchema.nullish(),
   sections: z.array(SectionConfigSchema).default([]),
   extractedAt: z.string().datetime().nullish(),
   sourceUrls: z.array(z.string().url()).default([]),
@@ -383,11 +413,12 @@ export const CATEGORY_DEFAULTS: Record<BusinessCategory, {
       { id: "hero", type: "hero", enabled: true, order: 1 },
       { id: "about", type: "about", enabled: true, order: 2 },
       { id: "services", type: "services", enabled: true, order: 3 },
-      { id: "gallery", type: "gallery", enabled: true, order: 4 },
-      { id: "team", type: "team", enabled: true, order: 5 },
-      { id: "reviews", type: "reviews", enabled: true, order: 6 },
-      { id: "faq", type: "faq", enabled: true, order: 7 },
-      { id: "contact", type: "contact", enabled: true, order: 8 },{ id: "blog", type: "blog", enabled: true, order: 9 },
+      { id: "walkthrough", type: "walkthrough", enabled: true, order: 4 },
+      { id: "gallery", type: "gallery", enabled: true, order: 5 },
+      { id: "team", type: "team", enabled: true, order: 6 },
+      { id: "reviews", type: "reviews", enabled: true, order: 7 },
+      { id: "faq", type: "faq", enabled: true, order: 8 },
+      { id: "contact", type: "contact", enabled: true, order: 9 },{ id: "blog", type: "blog", enabled: true, order: 10 },
     ],
   },
   "real-estate-developer": {
@@ -408,12 +439,13 @@ export const CATEGORY_DEFAULTS: Record<BusinessCategory, {
       { id: "hero", type: "hero", enabled: true, order: 1 },
       { id: "about", type: "about", enabled: true, order: 2 },
       { id: "services", type: "services", enabled: true, order: 3 },
-      { id: "gallery", type: "gallery", enabled: true, order: 4 },
-      { id: "pricing", type: "pricing", enabled: true, order: 5 },
-      { id: "team", type: "team", enabled: true, order: 6 },
-      { id: "reviews", type: "reviews", enabled: true, order: 7 },
-      { id: "faq", type: "faq", enabled: true, order: 8 },
-      { id: "contact", type: "contact", enabled: true, order: 9 },{ id: "blog", type: "blog", enabled: true, order: 10 },
+      { id: "walkthrough", type: "walkthrough", enabled: true, order: 4 },
+      { id: "gallery", type: "gallery", enabled: true, order: 5 },
+      { id: "pricing", type: "pricing", enabled: true, order: 6 },
+      { id: "team", type: "team", enabled: true, order: 7 },
+      { id: "reviews", type: "reviews", enabled: true, order: 8 },
+      { id: "faq", type: "faq", enabled: true, order: 9 },
+      { id: "contact", type: "contact", enabled: true, order: 10 },{ id: "blog", type: "blog", enabled: true, order: 11 },
     ],
   },
   "medspa": {

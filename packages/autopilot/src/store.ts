@@ -22,6 +22,10 @@ export interface LeadRecord {
   lastOutreachAt?: string;
   /** How many times a failed/stuck build has been retried */
   retryCount?: number;
+  /** Real video URLs scraped from the business's social profiles (for the hero trailer). */
+  videos?: string[];
+  /** Real photo URLs scraped for this business (Places + website + social). */
+  photoUrls?: string[];
   discoveredAt: string;
   updatedAt: string;
 }

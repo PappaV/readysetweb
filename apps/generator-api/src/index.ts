@@ -16,11 +16,22 @@ import { ConversationStore } from "./conversations";
 import { SupportManager } from "./support";
 import { SalesStore } from "./sales";
 
-const apiKey = process.env.DEEPSEEK_API_KEY;
+const aiProvider = (process.env.AI_PROVIDER ?? "deepseek") as "deepseek" | "gemini" | "ollama";
+const apiKey = aiProvider === "ollama"
+  ? "ollama" // local server needs no key
+  : aiProvider === "gemini"
+    ? (process.env.GEMINI_API_KEY ?? "")
+    : (process.env.DEEPSEEK_API_KEY ?? "");
 if (!apiKey) {
-  console.error("DEEPSEEK_API_KEY not set");
+  console.error(`API key not set for provider "${aiProvider}" (set GEMINI_API_KEY or DEEPSEEK_API_KEY)`);
   process.exit(1);
 }
+const aiConfig = {
+  apiKey,
+  provider: aiProvider,
+  model: process.env.OLLAMA_MODEL || process.env.GEMINI_MODEL || process.env.DEEPSEEK_MODEL || undefined,
+  baseUrl: aiProvider === "ollama" ? (process.env.OLLAMA_BASE_URL ?? undefined) : undefined,
+};
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
@@ -64,7 +75,7 @@ const subscriptionClient =
     : null;
 
 const orchestrator = new GenerationOrchestrator({
-  apiKey,
+  ...aiConfig,
   placesApiKey: process.env.GCP_PLACES_API_KEY,
   deploy: process.env.DEPLOY_TOKEN
     ? {
@@ -194,7 +205,7 @@ const supportEmail =
 
 const supportManager = new SupportManager({
   conversations: conversationStore,
-  contentGen: new ContentGenerator({ apiKey }),
+  contentGen: new ContentGenerator(aiConfig),
   telegram: telegramBot ?? undefined,
   email: supportEmail,
 });
@@ -309,7 +320,7 @@ app.post("/api/sales/:businessId/go-live", async (req, res) => {
 });
 
 // AI visitor chatbot — answers site visitors from the business's own data
-const chatContentGen = new ContentGenerator({ apiKey });
+const chatContentGen = new ContentGenerator(aiConfig);
 
 const ChatBodySchema = z.object({
   businessId: z.string().min(1),

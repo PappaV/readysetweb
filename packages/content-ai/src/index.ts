@@ -174,6 +174,11 @@ Your job is to draft the reply WE send to the client. Rules:
     const sectionServices = (sectionResult as { services?: Array<{ name: string; description?: string; price?: string | null; duration?: string | null }> }).services ?? [];
     const sectionPricing = (sectionResult as { pricing?: Array<{ name: string; price: string; period?: string; features?: string[]; ctaText?: string; popular?: boolean; estimated?: boolean }> }).pricing ?? [];
     const sectionFaqs = (sectionResult as { faqs?: Array<{ question: string; answer: string }> }).faqs ?? [];
+    const sectionWalkthrough = (sectionResult as { walkthrough?: { heading?: string; intro?: string; rooms?: Array<{ name?: string; description?: string; x?: number; y?: number; width?: number; height?: number }> } }).walkthrough;
+
+    // Hybrid walkthrough content: rooms come from the AI (named + narrated),
+    // photos come from real scraped gallery when available, else category stock.
+    const walkthrough = this.buildWalkthrough(sectionWalkthrough, extraction.category, realGallery, extraction.name);
 
     const business: BusinessData = {
       ...extraction,
@@ -181,6 +186,7 @@ Your job is to draft the reply WE send to the client. Rules:
       blog: blogResult.posts,
       logoUrl: input.logoUrl ?? extraction.logoUrl ?? undefined,
       gallery: realGallery.length ? realGallery : extraction.gallery,
+      walkthrough,
       // Merge AI-generated pricing/services so the demo never has an empty pricing section
       pricing: sectionPricing.length
         ? sectionPricing.map((p) => ({
@@ -326,6 +332,7 @@ Your job is to draft the reply WE send to the client. Rules:
         gallery: "gallery",
         pricing: "pricing",
         booking: "booking",
+        walkthrough: "walkthrough",
       };
       const dataKey = contentMap[section.type];
       const data = dataKey ? (sectionResult as Record<string, unknown>)[dataKey] : undefined;
@@ -333,6 +340,36 @@ Your job is to draft the reply WE send to the client. Rules:
     });
 
     return enriched;
+  }
+
+  /**
+   * Build the guided property tour for real-estate sites. The AI supplies the
+   * rooms + narration; photos are hybrid — real scraped gallery images are
+   * assigned when present, otherwise the section falls back to category stock.
+   */
+  private buildWalkthrough(
+    raw: { heading?: string; intro?: string; rooms?: Array<{ name?: string; description?: string; x?: number; y?: number; width?: number; height?: number }> } | undefined,
+    category: BusinessCategory,
+    realGallery: Array<{ url: string; alt: string }>,
+    businessName: string
+  ) {
+    if (category !== "real-estate-agent" && category !== "real-estate-developer") return undefined;
+    const rooms = (raw?.rooms ?? []).filter((r) => r.name).map((r, i) => ({
+      id: `room-${i + 1}`,
+      name: r.name ?? `Room ${i + 1}`,
+      description: r.description ?? "",
+      photoUrl: realGallery[i % Math.max(realGallery.length, 1)]?.url ?? null,
+      x: clampPct(r.x, 0, 100),
+      y: clampPct(r.y, 0, 100),
+      width: clampPct(r.width, 10, 100),
+      height: clampPct(r.height, 10, 100),
+    }));
+    if (!rooms.length) return undefined;
+    return {
+      heading: raw?.heading ?? "Take the walkthrough",
+      intro: raw?.intro ?? `A guided room-by-room tour of ${businessName}.`,
+      rooms,
+    };
   }
 
   private extractSEO(copyResult: Record<string, unknown>) {
@@ -354,4 +391,9 @@ Your job is to draft the reply WE send to the client. Rules:
       }
     }
   }
+}
+
+function clampPct(value: number | undefined, min: number, max: number): number {
+  if (typeof value !== "number" || !isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.round(value)));
 }

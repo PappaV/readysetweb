@@ -25,15 +25,20 @@ export const FOOTAGE_POOL: Record<string, string[]> = {
     "https://videos.pexels.com/video-files/3571264/3571264-hd_1920_1080_30fps.mp4",
     "https://videos.pexels.com/video-files/13467956/13467956-hd_1920_1080_30fps.mp4",
     "https://videos.pexels.com/video-files/5524244/5524244-hd_1920_1080_30fps.mp4",
+    "https://videos.pexels.com/video-files/12453909/12453909-hd_1920_1080_30fps.mp4",
+    "https://videos.pexels.com/video-files/5894175/5894175-hd_1920_1080_30fps.mp4",
   ],
   "boutique-hospitality": [
     "https://videos.pexels.com/video-files/856995/856995-hd_1920_1080_30fps.mp4",
     "https://videos.pexels.com/video-files/13467956/13467956-hd_1920_1080_30fps.mp4",
+    "https://videos.pexels.com/video-files/16058046/16058046-hd_1920_1080_30fps.mp4",
   ],
   "guesthouse-lodge": [
     "https://videos.pexels.com/video-files/3130284/3130284-hd_1920_1080_30fps.mp4",
     "https://videos.pexels.com/video-files/5524244/5524244-hd_1920_1080_30fps.mp4",
     "https://videos.pexels.com/video-files/13467956/13467956-hd_1920_1080_30fps.mp4",
+    "https://videos.pexels.com/video-files/16058046/16058046-hd_1920_1080_30fps.mp4",
+    "https://videos.pexels.com/video-files/9974244/9974244-hd_1920_1080_30fps.mp4",
   ],
   "real-estate-agent": [
     "https://videos.pexels.com/video-files/1093662/1093662-hd_1920_1080_30fps.mp4",
@@ -65,6 +70,16 @@ export interface TrailerInput {
   outputPath: string;
   duration?: number;
   fps?: number;
+}
+
+function pickFont(): string {
+  const candidates = [
+    "C:/Windows/Fonts/arialbd.ttf",
+    "C:/Windows/Fonts/segoeuib.ttf",
+    "C:/Windows/Fonts/arial.ttf",
+    "C:/Windows/Fonts/segoeui.ttf",
+  ];
+  return candidates.find((f) => existsSync(f)) ?? "C:/Windows/Fonts/arial.ttf";
 }
 
 function gradeFilter(lighting?: string): string {
@@ -175,10 +190,20 @@ export function composeTrailerArgs(input: TrailerInput): { args: string[]; label
 /** Render the trailer. Returns true on success. */
 export function renderTrailer(input: TrailerInput): boolean {
   try {
-    const { args } = composeTrailerArgs(input);
+    const { args, label } = composeTrailerArgs(input);
     execFileSync(FFMPEG, args, { stdio: "ignore", timeout: 300_000 });
-    return existsSync(input.outputPath) && statSync(input.outputPath).size > 100_000;
-  } catch {
+    const ok = existsSync(input.outputPath) && statSync(input.outputPath).size > 100_000;
+    if (!ok) console.error(`[trailer] ${label} produced no output`);
+    return ok;
+  } catch (err) {
+    const e = err as { stderr?: Buffer | string; message?: string };
+    const detail =
+      typeof e.stderr === "string"
+        ? e.stderr.split("\n").slice(-5).join("\n")
+        : Buffer.isBuffer(e.stderr)
+          ? e.stderr.toString("utf8").split("\n").slice(-5).join("\n")
+          : e.message;
+    console.error(`[trailer] render failed: ${detail}`);
     rmSync(input.outputPath, { force: true });
     return false;
   }
@@ -208,4 +233,135 @@ export async function downloadFootage(urls: string[], dir: string): Promise<stri
     }
   }
   return out;
+}
+
+/**
+ * REAL-FOOTAGE FILM — Option A.
+ * Edits living HD video footage like a movie trailer: hard cuts between real
+ * clips, a slow push-in on each, cinematic film grade + letterbox + grain, and
+ * the business name appearing ONLY as a subtle end-title over the last clip.
+ * No title cards, no 3D, no slideshow — pure cinematic footage.
+ */
+export interface FootageFilmInput {
+  business: BusinessData;
+  /** Local real video files (living footage). */
+  footage: string[];
+  /** Local real photo paths — woven in as quick motion inserts (may be empty). */
+  photos?: string[];
+  outputPath: string;
+  duration?: number;
+  fps?: number;
+  /** Show the business name as a subtle end-title over the final clip. */
+  title?: boolean;
+}
+
+export function renderFootageFilm(input: FootageFilmInput): boolean {
+  const duration = input.duration ?? 15;
+  const fps = input.fps ?? 24;
+  const W = 1280, H = 720;
+  const seed = hashString(`${input.business.name}|${input.business.category}|film`);
+  const rand = mulberry32(seed);
+
+  const clips = input.footage.filter((f) => existsSync(f)).slice(0, 5);
+  const photos = (input.photos ?? []).filter((p) => existsSync(p)).slice(0, 4);
+
+  if (clips.length === 0) return false;
+
+  // Build the shot list: footage clips with photo inserts interleaved.
+  const shots: { file: string; kind: "video" | "photo" }[] = [];
+  let photoIdx = 0;
+  for (let i = 0; i < clips.length; i++) {
+    shots.push({ file: clips[i], kind: "video" });
+    // Insert a photo after some video shots (motion within the film).
+    if (photoIdx < photos.length && rand() > 0.4) {
+      shots.push({ file: photos[photoIdx++], kind: "photo" });
+    }
+  }
+  // Ensure all photos get used.
+  while (photoIdx < photos.length) shots.push({ file: photos[photoIdx++], kind: "photo" });
+
+  const n = shots.length;
+  const cut = 0.25; // hard-cut dissolve (film cut, not slideshow crossfade)
+  const totalTime = duration + (n - 1) * cut;
+  const weights = shots.map((s) => (s.kind === "video" ? 2.2 : 1.0));
+  const wSum = weights.reduce((a, b) => a + b, 0);
+  const segLens = weights.map((w) => (totalTime * w) / wSum);
+
+  const args: string[] = ["-y", "-nostdin"];
+  const filters: string[] = [];
+
+  shots.forEach((shot, i) => {
+    args.push("-i", shot.file);
+    if (shot.kind === "video") {
+      // Real footage: just scale/crop to canvas + film pull-in (slight zoom).
+      filters.push(
+        `[${i}:v]scale=${Math.round(W * 1.06)}:${Math.round(H * 1.06)}:force_original_aspect_ratio=increase,crop=${W}:${H},` +
+          `fps=${fps},setsar=1[v${i}]`
+      );
+    } else {
+      // Photo insert: quick motion shot (Ken Burns within the film, 1 shot).
+      const d = Math.max(Math.round(segLens[i] * fps), 2);
+      filters.push(
+        `[${i}:v]scale=${Math.round(W * 1.15)}:${Math.round(H * 1.15)}:force_original_aspect_ratio=increase,crop=${W}:${H},` +
+          `zoompan=z='1.05+0.0015*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=${d}:s=${W}x${H},fps=${fps},setsar=1[v${i}]`
+      );
+    }
+  });
+
+  // Chain with fast dissolve cuts (film-style).
+  let last = "v0";
+  let offset = segLens[0] - cut;
+  for (let i = 1; i < n; i++) {
+    const out = i === n - 1 ? "vout" : `x${i}`;
+    const transition = rand() > 0.5 ? "fade" : "dissolve";
+    filters.push(`[${last}][v${i}]xfade=transition=${transition}:duration=${cut.toFixed(3)}:offset=${offset.toFixed(3)}[${out}]`);
+    last = out;
+    offset += segLens[i] - cut;
+  }
+
+  // Cinematic film grade + letterbox + grain.
+  const grade = gradeFilter(input.business.heroConfig?.lighting);
+  const barH = 48;
+  let finalFilter = `[${last}]${grade},eq=contrast=1.08:saturation=1.15:brightness=0.02,vignette=angle=PI/6,` +
+    `drawbox=x=0:y=0:w=iw:h=${barH}:color=black:t=fill,` +
+    `drawbox=x=0:y=ih-${barH}:w=iw:h=${barH}:color=black:t=fill[vfbase]`;
+
+  // Optional subtle end-title: business name + tagline fades in over the final
+  // clip (low-key, not a full card — like a film's closing title over footage).
+  if (input.title) {
+    const fontFile = pickFont().replace(/:/g, "\\:");
+    const safeName = input.business.name.replace(/'/g, "").slice(0, 34);
+    const tag = (input.business.tagline || "").toUpperCase().slice(0, 40);
+    const showFrom = Math.max(duration - 4.5, 1);
+    const alpha = `if(lt(t,${showFrom.toFixed(2)}),0,min(1,(t-${showFrom.toFixed(2)})/0.9))`;
+    const brandBox = "0x000000";
+    const titleDraw = `drawtext=fontfile='${fontFile}':text='${safeName}':` +
+      `fontsize=52:fontcolor=white@0.96:borderw=1:bordercolor=black@0.3:` +
+      `box=1:boxcolor=${brandBox}@0.25:boxborderw=14:` +
+      `x=(w-text_w)/2:y=h*0.30:alpha='${alpha}'`;
+    const tagDraw = tag
+      ? `,drawtext=fontfile='${fontFile}':text='${tag}':` +
+        `fontsize=24:fontcolor=white@0.7:` +
+        `x=(w-text_w)/2:y=h*0.30+74:alpha='${alpha}'`
+      : "";
+    finalFilter += `,[vfbase]${titleDraw}${tagDraw},format=yuv420p[vf]`;
+  } else {
+    finalFilter += ",[vfbase]format=yuv420p[vf]";
+  }
+  filters.push(finalFilter);
+
+  args.push("-filter_complex", filters.join(";"), "-map", "[vf]");
+  args.push("-c:v", "libx264", "-preset", "slower", "-crf", "25", "-maxrate", "2.5M", "-bufsize", "5M", "-pix_fmt", "yuv420p", "-movflags", "+faststart");
+  args.push("-r", String(fps), "-t", String(duration), input.outputPath);
+
+  try {
+    execFileSync(FFMPEG, args, { stdio: "pipe", timeout: 300_000 });
+    return existsSync(input.outputPath) && statSync(input.outputPath).size > 100_000;
+  } catch (err) {
+    const e = err as { stdout?: Buffer; stderr?: Buffer };
+    const lines = (e.stderr?.toString() || "").split("\n");
+    console.error("[trailer:footage] render failed:", lines.slice(-8).join("\n"));
+    rmSync(input.outputPath, { force: true });
+    return false;
+  }
 }

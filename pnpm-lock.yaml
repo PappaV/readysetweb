@@ -192,6 +192,9 @@ importers:
 
   packages/deploy:
     dependencies:
+      '@demo-site-generator/blender-hero':
+        specifier: workspace:*
+        version: link:../blender-hero
       '@demo-site-generator/cinematic':
         specifier: workspace:*
         version: link:../cinematic

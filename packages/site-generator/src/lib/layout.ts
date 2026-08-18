@@ -68,13 +68,14 @@ export const LAYOUTS: Record<BusinessCategory, CategoryLayout> = {
       about: "light",
       services: "alt",
       gallery: "light",
+      walkthrough: "tint",
       team: "alt",
       reviews: "tint",
       faq: "light",
       blog: "alt",
       contact: "light",
     },
-    feature: ["gallery", "reviews", "contact"],
+    feature: ["gallery", "walkthrough", "reviews", "contact"],
   },
   // Masterplan cinematic: full-bleed, stats heavy, developer trust
   "real-estate-developer": {
@@ -83,6 +84,7 @@ export const LAYOUTS: Record<BusinessCategory, CategoryLayout> = {
       about: "tint",
       services: "light",
       gallery: "alt",
+      walkthrough: "light",
       pricing: "light",
       team: "alt",
       reviews: "tint",
@@ -90,7 +92,7 @@ export const LAYOUTS: Record<BusinessCategory, CategoryLayout> = {
       blog: "alt",
       contact: "light",
     },
-    feature: ["pricing", "gallery", "team"],
+    feature: ["pricing", "walkthrough", "gallery", "team"],
   },
 };
 

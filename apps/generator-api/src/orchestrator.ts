@@ -54,11 +54,14 @@ export class GenerationOrchestrator {
 
   constructor(config: {
     apiKey: string;
+    provider?: "deepseek" | "gemini" | "ollama";
+    model?: string;
+    baseUrl?: string;
     placesApiKey?: string;
     deploy?: DeployConfig;
     outreach?: OutreachConfig;
   }) {
-    this.contentGen = new ContentGenerator({ apiKey: config.apiKey });
+    this.contentGen = new ContentGenerator({ apiKey: config.apiKey, provider: config.provider, model: config.model, baseUrl: config.baseUrl });
     if (config.placesApiKey) {
       this.placesClient = new PlacesClient({ apiKey: config.placesApiKey });
     }

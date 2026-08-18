@@ -1,10 +1,20 @@
+export type AIProvider = "deepseek" | "gemini" | "ollama";
+
 export interface DeepSeekConfig {
   apiKey: string;
   baseUrl?: string;
   model?: string;
+  /** Route to an OpenAI-compatible provider endpoint. Defaults to deepseek. */
+  provider?: AIProvider;
   maxRetries?: number;
   timeoutMs?: number;
 }
+
+const PROVIDER_DEFAULTS: Record<AIProvider, { baseUrl: string; model: string }> = {
+  deepseek: { baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  gemini: { baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-flash-latest" },
+  ollama: { baseUrl: "http://localhost:11434/v1", model: "llama3.1" },
+};
 
 export interface DeepSeekMessage {
   role: "system" | "user" | "assistant";
@@ -48,8 +58,10 @@ export class DeepSeekClient {
 
   constructor(config: DeepSeekConfig) {
     this.apiKey = config.apiKey;
-    this.baseUrl = (config.baseUrl ?? "https://api.deepseek.com/v1").replace(/\/$/, "");
-    this.model = config.model ?? "deepseek-chat";
+    const provider = config.provider ?? "deepseek";
+    const defaults = PROVIDER_DEFAULTS[provider];
+    this.baseUrl = (config.baseUrl ?? defaults.baseUrl).replace(/\/$/, "");
+    this.model = config.model ?? defaults.model;
     this.maxRetries = config.maxRetries ?? 3;
     this.timeoutMs = config.timeoutMs ?? 120_000;
   }

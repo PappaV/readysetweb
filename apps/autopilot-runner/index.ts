@@ -10,7 +10,7 @@ for (const key of required) {
   }
 }
 
-const CATEGORY_TARGETS: { category: BusinessCategory; keywords: string[]; locations: string[] }[] = [
+const CATEGORY_TARGETS: { category: BusinessCategory; keywords: string[]; locations: string[]; websiteFilter?: "no-website" | "any" | "with-website" }[] = [
   {
     category: "medspa",
     keywords: ["med spa", "aesthetics clinic"],
@@ -29,7 +29,17 @@ const CATEGORY_TARGETS: { category: BusinessCategory; keywords: string[]; locati
   {
     category: "real-estate-agent",
     keywords: ["real estate agent"],
-    locations: ["Cape Town, South Africa", "Johannesburg, South Africa"],
+    locations: ["Cape Town, South Africa", "Johannesburg, South Africa", "Durban, South Africa", "Pretoria, South Africa", "Stellenbosch, South Africa"],
+    // Real-estate agents virtually always have websites. The pitch is a
+    // walkthrough upgrade, so target agents WITH a site (they'll buy a
+    // property-tour upgrade) rather than "you have no website".
+    websiteFilter: "with-website",
+  },
+  {
+    category: "real-estate-developer",
+    keywords: ["property developer"],
+    locations: ["Cape Town, South Africa", "Johannesburg, South Africa", "Durban, South Africa", "Pretoria, South Africa"],
+    websiteFilter: "any",
   },
 ];
 

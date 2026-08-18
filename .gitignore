@@ -13,6 +13,10 @@ dist/
 .turbo/
 **/.turbo/
 
+# Rendered per-site media (trailers, stills, cards)
+packages/site-generator/public/images/
+**/public/images/
+
 # Astro
 .astro/
 **/.astro/

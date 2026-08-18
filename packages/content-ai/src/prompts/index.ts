@@ -154,8 +154,28 @@ Shape:
   "faqs": [{ "question": string, "answer": string (1-2 sentences) }],
   "gallery": [{ "caption": string, "category": string }],
   "pricing": [{ "name": string, "price": string (ZAR), "period": string, "features": string[], "ctaText": string, "popular": boolean, "estimated": boolean }],
-  "booking": { "heading": string, "subheading": string, "ctaText": string, "calendarNote": string }
+  "booking": { "heading": string, "subheading": string, "ctaText": string, "calendarNote": string },
+  "walkthrough": {
+    "heading": string (max 6 words),
+    "intro": string (1-2 sentences inviting the visitor to tour the home),
+    "rooms": [
+      {
+        "name": string (a room, e.g. "Open-Plan Living Area"),
+        "description": string (2-3 sentences of guided narration about this room),
+        "x": number (floor-plan left edge as %, 0-100),
+        "y": number (floor-plan top edge as %, 0-100),
+        "width": number (room width as %, 5-100),
+        "height": number (room height as %, 5-100)
+      }
+    ]
+  }
 }
+
+Walkthrough rules:
+- ONLY include "walkthrough" for real-estate categories ("real-estate-agent", "real-estate-developer"). Omit it entirely otherwise.
+- Exactly 6 rooms that tile into a believable home floor plan (no overlaps beyond shared walls, all within 0-100). Suggested layout order: Entrance, Open-Plan Kitchen & Living, Master Bedroom, Second Bedroom, Bathroom, Garden/Patio.
+- Coordinates are percentages of a 100x100 floor plan. Make the rooms roughly proportional (living areas bigger than bathrooms).
+- Narration sells the lifestyle: light, space, flow, finishes — never generic filler.
 
 ALWAYS fill the pricing array with 2-3 plans and give every service a realistic price. Use real prices from the provided data where available and set "estimated": false. When no real price exists, create a realistic sample price for this category and set "estimated": true (these are placeholders until the business confirms real rates).`;
 }

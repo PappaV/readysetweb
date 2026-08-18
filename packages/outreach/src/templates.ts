@@ -9,6 +9,8 @@ export interface OutreachContext {
   email?: string;
   /** Link to the client's portal (manage site, request changes) */
   portalUrl?: string;
+  /** True when the business already has a website (pitch = upgrade/walkthrough). */
+  hasWebsite?: boolean;
 }
 
 const CATEGORY_HOOK: Record<string, string> = {
@@ -18,6 +20,18 @@ const CATEGORY_HOOK: Record<string, string> = {
   "boutique-hospitality": "guests compare three properties before booking — the one that looks best wins the night",
   "guesthouse-lodge": "travelers browse several lodges before choosing; the first impressive site usually gets the booking",
 };
+
+const WALKTHROUGH_CATEGORIES = new Set(["real-estate-agent", "real-estate-developer"]);
+
+function walkthroughLine(category: string): string {
+  if (category === "real-estate-developer") {
+    return "Every listing gets its own guided room-by-room walkthrough, so buyers can tour the property before they even call.";
+  }
+  if (category === "real-estate-agent") {
+    return "Every listing gets its own guided room-by-room walkthrough, so buyers tour the home before they even call.";
+  }
+  return "";
+}
 
 export interface EmailMessage {
   subject: string;
@@ -33,19 +47,23 @@ export function buildEmailTemplates(ctx: OutreachContext): {
   const hook = CATEGORY_HOOK[ctx.category] ?? CATEGORY_HOOK["boutique-hospitality"];
   const cityLine = ctx.city ? ` in ${ctx.city}` : "";
   const portalLine = ctx.portalUrl ? `\n\nYou can also manage your site and request changes anytime here:\n${ctx.portalUrl}\n` : "";
+  const walkthrough = WALKTHROUGH_CATEGORIES.has(ctx.category) ? walkthroughLine(ctx.category) : "";
+  const intro = ctx.hasWebsite
+    ? `I was looking at ${ctx.businessName}${cityLine} and noticed ${hook}.`
+    : `I noticed ${ctx.businessName}${cityLine} doesn't have a website yet — and ${hook}.`;
 
   const first: EmailMessage = {
     subject: `${ctx.businessName}`,
     to: ctx.email ?? "",
     body: `Hi,
 
-I noticed ${ctx.businessName}${cityLine} doesn't have a website yet — and ${hook}.
+${intro}
 
 So I went ahead and built a quick demo for you. You can see it live here:
 
 ${ctx.demoUrl}
 
-It's a modern site with your real info, a cinematic homepage, and a booking section ready to go. Nothing to download, no strings attached.${portalLine}
+It's a modern site with your real info, a cinematic homepage${walkthrough ? `, and a guided property walkthrough` : ""}, and a booking section ready to go.${walkthrough ? ` ${walkthrough}` : ""} Nothing to download, no strings attached.${portalLine}
 Would it be useful if we made this yours? Happy to explain what's included.
 
 — ${ctx.senderName}
